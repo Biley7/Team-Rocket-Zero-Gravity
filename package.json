@@ -1,0 +1,9 @@
+{
+  "name": "team-rocket",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Weather and Alerts Dashboard - Hack Day Haldia x GRID community starter",
+  "scripts": {
+    "start": "npx --yes serve ."
+  }
+}
