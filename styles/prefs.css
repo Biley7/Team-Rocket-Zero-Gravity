@@ -1,0 +1,277 @@
+/* WeatherHack — favourites, unit toggle, status banner.
+   OWNER: Dighal.
+   Uses neutral semi-transparent surfaces so it reads on every weather theme.
+   If base.css defines --wx-surface-2 / --wx-border / --wx-accent they are picked up automatically. */
+
+.wx-favs,
+.wx-switch,
+.wx-status {
+  --prefs-bg: var(--wx-surface-2, rgba(127, 127, 127, 0.16));
+  --prefs-bg-hover: rgba(127, 127, 127, 0.26);
+  --prefs-border: var(--wx-border, rgba(127, 127, 127, 0.38));
+  --prefs-accent: var(--wx-accent, #3b82f6);
+}
+
+[hidden] { display: none !important; }
+
+/* ------------------------------------------------------------ favourites */
+
+.wx-favs__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+}
+
+.wx-favs__title {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.wx-fav-toggle {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  min-height: 44px;
+  padding: 0.4rem 0.95rem;
+  border: 1px solid var(--prefs-border);
+  border-radius: 999px;
+  background: var(--prefs-bg);
+  color: inherit;
+  font: inherit;
+  font-size: 0.9rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.wx-fav-toggle:hover:not(:disabled) { background: var(--prefs-bg-hover); }
+.wx-fav-toggle[aria-pressed="true"] { border-color: var(--prefs-accent); }
+.wx-fav-toggle:disabled { opacity: 0.55; cursor: not-allowed; }
+
+.wx-favs__note {
+  min-height: 1.2em;
+  margin: 0 0 0.35rem;
+  font-size: 0.82rem;
+  opacity: 0.85;
+}
+
+.wx-favs__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wx-fav {
+  display: inline-flex;
+  align-items: stretch;
+  max-width: 100%;
+  border: 1px solid var(--prefs-border);
+  border-radius: 999px;
+  background: var(--prefs-bg);
+  overflow: hidden;
+}
+
+.wx-fav.is-active { border-color: var(--prefs-accent); box-shadow: 0 0 0 1px var(--prefs-accent) inset; }
+
+.wx-fav__pick,
+.wx-fav__remove {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.wx-fav__pick {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0.35rem 0.4rem 0.35rem 0.9rem;
+  text-align: left;
+  line-height: 1.2;
+}
+
+.wx-fav__name { font-weight: 600; font-size: 0.92rem; }
+
+.wx-fav__meta {
+  max-width: 11rem;
+  font-size: 0.72rem;
+  opacity: 0.75;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wx-fav__remove {
+  min-width: 44px;
+  padding: 0 0.7rem 0 0.4rem;
+  font-size: 1.25rem;
+  line-height: 1;
+  opacity: 0.7;
+}
+
+.wx-fav__pick:hover,
+.wx-fav__remove:hover { background: var(--prefs-bg-hover); opacity: 1; }
+
+.wx-fav-toggle:focus-visible,
+.wx-fav__pick:focus-visible,
+.wx-fav__remove:focus-visible,
+.wx-switch:focus-visible,
+.wx-status__action:focus-visible {
+  outline: 2px solid var(--prefs-accent);
+  outline-offset: 2px;
+}
+
+/* ---------------------------------------------------------- °C / °F switch */
+
+.wx-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-height: 44px;
+  padding: 0.25rem 0.5rem;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.wx-switch__label {
+  font-size: 0.95rem;
+  font-weight: 500;
+  opacity: 0.6;
+  transition: opacity 0.15s ease;
+}
+
+.wx-switch[data-unit="c"] .wx-switch__label--c,
+.wx-switch[data-unit="f"] .wx-switch__label--f {
+  font-weight: 700;
+  opacity: 1;
+}
+
+.wx-switch__track {
+  position: relative;
+  width: 3rem;
+  height: 1.65rem;
+  border: 1px solid var(--prefs-border);
+  border-radius: 999px;
+  background: var(--prefs-bg);
+  transition: background 0.2s ease;
+}
+
+.wx-switch__thumb {
+  position: absolute;
+  top: 50%;
+  left: 0.2rem;
+  width: 1.2rem;
+  height: 1.2rem;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  transform: translateY(-50%);
+  transition: transform 0.2s ease;
+}
+
+.wx-switch[data-unit="f"] .wx-switch__track { background: var(--prefs-accent); }
+.wx-switch[data-unit="f"] .wx-switch__thumb { transform: translate(1.35rem, -50%); }
+
+/* ---------------------------------------------------------- status banner */
+
+.wx-region--status:not([hidden]) { margin-bottom: 0.75rem; }
+
+.wx-status {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.7rem 1rem;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  font-size: 0.92rem;
+  line-height: 1.35;
+}
+
+.wx-status__text {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.wx-status__title { font-weight: 700; }
+.wx-status__detail { font-size: 0.85rem; opacity: 0.9; }
+
+.wx-status__icon {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  background: currentColor;
+  font-size: 0.85rem;
+  font-weight: 800;
+}
+
+.wx-status__spinner {
+  flex: none;
+  width: 1.2rem;
+  height: 1.2rem;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: wx-status-spin 0.8s linear infinite;
+}
+
+@keyframes wx-status-spin { to { transform: rotate(360deg); } }
+
+.wx-status__action {
+  flex: none;
+  min-height: 40px;
+  padding: 0.35rem 0.95rem;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.wx-status__action:hover { background: rgba(0, 0, 0, 0.08); }
+
+/* Fixed colour pairs (bg + text) so contrast holds on any weather theme. */
+.wx-status--loading { background: #e8f1ff; color: #0b3a7a; border-color: #b8d3fb; }
+.wx-status--offline { background: #fff4d6; color: #5c3d00; border-color: #f0d38a; }
+.wx-status--error   { background: #fde8e8; color: #7a1212; border-color: #f4b6b6; }
+.wx-status--success { background: #e3f6e8; color: #14532d; border-color: #a9dfb9; }
+.wx-status--info    { background: #eef0f4; color: #2b3445; border-color: #cfd5df; }
+
+/* Icon = dark disc with a light glyph, matching each banner's colour pair. */
+.wx-status--offline .wx-status__icon { background: #7a4b00; color: #fff4d6; }
+.wx-status--error .wx-status__icon   { background: #8a1c1c; color: #fde8e8; }
+.wx-status--success .wx-status__icon { background: #14532d; color: #e3f6e8; }
+.wx-status--info .wx-status__icon    { background: #0b3a7a; color: #eef0f4; }
+
+@media (max-width: 480px) {
+  .wx-status { flex-wrap: wrap; }
+  .wx-status__action { margin-left: auto; }
+  .wx-fav__meta { max-width: 8rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wx-status__spinner { animation-duration: 2.4s; }
+  .wx-switch__thumb,
+  .wx-switch__track,
+  .wx-fav-toggle { transition: none; }
+}
