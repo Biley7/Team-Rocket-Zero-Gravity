@@ -1,0 +1,202 @@
+/* WeatherHack — design tokens, reset and app shell.
+   OWNER: Core (frontend architect). Other owners consume these tokens;
+   do not restyle another owner's region from here. */
+
+:root {
+  --wx-space-1: .25rem;
+  --wx-space-2: .5rem;
+  --wx-space-3: .75rem;
+  --wx-space-4: 1rem;
+  --wx-space-5: 1.5rem;
+  --wx-space-6: 2.25rem;
+
+  --wx-radius-sm: 8px;
+  --wx-radius: 14px;
+  --wx-radius-lg: 22px;
+
+  --wx-font: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+
+  --wx-text: #0d1b2a;
+  --wx-muted: #5a6b80;
+  --wx-surface: rgba(255, 255, 255, .78);
+  --wx-surface-solid: #ffffff;
+  --wx-border: rgba(13, 27, 42, .10);
+  --wx-accent: #2f6fed;
+  --wx-accent-soft: rgba(47, 111, 237, .12);
+
+  --wx-sev-low: #1f9d6b;
+  --wx-sev-moderate: #d9930b;
+  --wx-sev-high: #e0642e;
+  --wx-sev-severe: #c0392b;
+
+  --wx-shadow: 0 1px 2px rgba(13, 27, 42, .05), 0 10px 30px rgba(13, 27, 42, .08);
+
+  --wx-grad-1: #cfe0f7;
+  --wx-grad-2: #e8eff9;
+  --wx-grad-3: #f7fafc;
+  --wx-icon-color: #7b8ba3;
+  --wx-blob-1: #a9c9ff;
+  --wx-blob-2: #ffd9b0;
+}
+
+/* Weather-dependent palette (owned by current.js via WX.theme.apply) */
+body[data-weather="clear"][data-time="day"]   { --wx-grad-1: #9ccbff; --wx-grad-2: #d7ecff; --wx-grad-3: #fdf6e4; --wx-blob-1: #ffcf6b; --wx-blob-2: #8fc4ff; }
+body[data-weather="clear"][data-time="night"] { --wx-grad-1: #101c3d; --wx-grad-2: #1d2c56; --wx-grad-3: #33406b; --wx-blob-1: #3f5bab; --wx-blob-2: #8ea9ff; }
+body[data-weather="clouds"][data-time="day"]  { --wx-grad-1: #b9c6d6; --wx-grad-2: #dde5ee; --wx-grad-3: #f5f8fb; --wx-blob-1: #9fb2c7; --wx-blob-2: #d7e1ec; }
+body[data-weather="clouds"][data-time="night"]{ --wx-grad-1: #151f33; --wx-grad-2: #26324a; --wx-grad-3: #3c4a63; --wx-blob-1: #46587a; --wx-blob-2: #7b8dab; }
+body[data-weather="rain"][data-time="day"]    { --wx-grad-1: #94a9bd; --wx-grad-2: #c3d0dc; --wx-grad-3: #eef2f6; --wx-blob-1: #7d95ad; --wx-blob-2: #a9b8c8; }
+body[data-weather="rain"][data-time="night"]  { --wx-grad-1: #0f1a26; --wx-grad-2: #1d2c3c; --wx-grad-3: #2f4256; --wx-blob-1: #35506b; --wx-blob-2: #6d87a3; }
+body[data-weather="thunder"][data-time="day"] { --wx-grad-1: #8f96ac; --wx-grad-2: #b9bed0; --wx-grad-3: #eceef4; --wx-blob-1: #6f6a9c; --wx-blob-2: #9a9ec2; }
+body[data-weather="thunder"][data-time="night"]{ --wx-grad-1: #14132a; --wx-grad-2: #241f45; --wx-grad-3: #3a3260; --wx-blob-1: #4b3f86; --wx-blob-2: #8b7cd6; }
+body[data-weather="snow"][data-time="day"]    { --wx-grad-1: #c8dcf0; --wx-grad-2: #e6eff8; --wx-grad-3: #fbfdff; --wx-blob-1: #b6d4ee; --wx-blob-2: #e2eefb; }
+body[data-weather="snow"][data-time="night"]  { --wx-grad-1: #16202f; --wx-grad-2: #24334a; --wx-grad-3: #3d516b; --wx-blob-1: #48628a; --wx-blob-2: #8fb2d6; }
+body[data-weather="fog"][data-time="day"]     { --wx-grad-1: #cfd5db; --wx-grad-2: #e6eaee; --wx-grad-3: #f8f9fa; --wx-blob-1: #b6bcc4; --wx-blob-2: #dfe3e7; }
+body[data-weather="fog"][data-time="night"]   { --wx-grad-1: #191e26; --wx-grad-2: #2a313c; --wx-grad-3: #424a58; --wx-blob-1: #4a545f; --wx-blob-2: #8b949f; }
+
+body[data-weather="clear"]  { --wx-icon-color: #f0a020; }
+body[data-weather="clouds"] { --wx-icon-color: #78899f; }
+body[data-weather="rain"]   { --wx-icon-color: #3d7dd6; }
+body[data-weather="thunder"]{ --wx-icon-color: #7c5cd6; }
+body[data-weather="snow"]   { --wx-icon-color: #62a9dd; }
+body[data-weather="fog"]    { --wx-icon-color: #8b96a3; }
+
+/* Night mode lifts the text palette so contrast survives the dark gradients */
+body[data-time="night"] {
+  --wx-text: #eef3fb;
+  --wx-muted: #a7b6cc;
+  --wx-surface: rgba(18, 26, 44, .68);
+  --wx-surface-solid: #141d33;
+  --wx-border: rgba(255, 255, 255, .14);
+  --wx-accent-soft: rgba(120, 165, 255, .18);
+  --wx-shadow: 0 1px 2px rgba(0, 0, 0, .35), 0 12px 34px rgba(0, 0, 0, .38);
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: var(--wx-font);
+  line-height: 1.5;
+  color: var(--wx-text);
+  background: #eef2f7;
+  transition: color .5s ease;
+}
+
+/* Animated weather backdrop */
+.wx-bg {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  background: linear-gradient(165deg, var(--wx-grad-1), var(--wx-grad-2) 55%, var(--wx-grad-3));
+  transition: background .8s ease;
+}
+
+.wx-bg span {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(60px);
+  opacity: .55;
+  animation: wx-drift 26s ease-in-out infinite;
+}
+.wx-bg span:nth-child(1) { width: 46vmax; height: 46vmax; top: -14vmax; left: -10vmax; background: var(--wx-blob-1); }
+.wx-bg span:nth-child(2) { width: 38vmax; height: 38vmax; top: 32vmax; right: -12vmax; background: var(--wx-blob-2); animation-delay: -9s; }
+.wx-bg span:nth-child(3) { width: 30vmax; height: 30vmax; bottom: -12vmax; left: 22vmax; background: var(--wx-blob-1); animation-delay: -17s; opacity: .35; }
+
+@keyframes wx-drift {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50%      { transform: translate3d(3vmax, -2vmax, 0) scale(1.08); }
+}
+
+/* Shell */
+.wx-skip {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  padding: var(--wx-space-2) var(--wx-space-4);
+  background: var(--wx-surface-solid);
+  z-index: 10;
+}
+.wx-skip:focus { left: var(--wx-space-4); top: var(--wx-space-4); }
+
+.wx-header {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: var(--wx-space-6) var(--wx-space-4) 0;
+}
+.wx-header__title { margin: 0; font-size: 1.6rem; letter-spacing: -.02em; }
+.wx-header__tag { margin: var(--wx-space-1) 0 0; color: var(--wx-muted); font-size: .95rem; }
+
+.wx-app {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: var(--wx-space-4) var(--wx-space-4) var(--wx-space-6);
+  display: grid;
+  gap: var(--wx-space-4);
+}
+
+.wx-footer {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 var(--wx-space-4) var(--wx-space-6);
+  color: var(--wx-muted);
+  font-size: .8rem;
+}
+
+/* Regions — each owner fills only their own container */
+.wx-region--status { grid-area: status; }
+.wx-region--search { grid-area: search; position: relative; z-index: 5; }
+.wx-region--current { grid-area: current; }
+.wx-region--alerts { grid-area: alerts; }
+.wx-region--chart { grid-area: chart; }
+.wx-region--forecast { grid-area: forecast; }
+.wx-region--favourites { grid-area: favourites; }
+.wx-region--units { grid-area: units; }
+
+/* Cards */
+.wx-card {
+  background: var(--wx-surface);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--wx-border);
+  border-radius: var(--wx-radius-lg);
+  box-shadow: var(--wx-shadow);
+  padding: var(--wx-space-5);
+}
+
+.wx-empty {
+  margin: 0;
+  padding: var(--wx-space-4);
+  text-align: center;
+  color: var(--wx-muted);
+  font-size: .9rem;
+  border: 1px dashed var(--wx-border);
+  border-radius: var(--wx-radius);
+}
+
+.wx-icon { display: block; width: 100%; height: 100%; color: var(--wx-icon-color); }
+
+/* Utilities */
+.is-hidden { display: none !important; }
+
+@media (min-width: 880px) {
+  .wx-app {
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr);
+    grid-template-areas:
+      "status    status"
+      "search    search"
+      "current   alerts"
+      "chart     chart"
+      "forecast  favourites"
+      "units     units";
+    align-items: start;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wx-bg span { animation: none; }
+  * { transition-duration: .01ms !important; animation-duration: .01ms !important; }
+}

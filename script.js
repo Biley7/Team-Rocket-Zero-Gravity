@@ -1,46 +1,71 @@
-// Weather and Alerts Dashboard - Hack Day Haldia x GRID community starter. Build the core tasks from README.md.
-const KEY = "hackday-haldia-team-rocket";
-const $ = (sel) => document.querySelector(sel);
+// WeatherHack — application bootstrap.
+// OWNER: Core (frontend architect). This is the only file that knows about
+// every module; keep it to wiring and ordering only.
+//
+// Render contract: every module exposes init() to build its own DOM and
+// render() to paint it. renderAll() is the single full repaint and is triggered
+// by the shared events below. Modules must NOT self-render on events, otherwise
+// the same region gets painted twice.
+(function (WX) {
+  "use strict";
 
-// App state - reshape it to fit your project.
-let state = { items: [] };
+  function call(path, args) {
+    // Tolerates a teammate's module being absent or failing to parse during
+    // parallel development — one broken file must not take the whole app down.
+    var parts = path.split(".");
+    var owner = WX[parts[0]];
+    if (!owner || typeof owner[parts[1]] !== "function") return;
+    try {
+      owner[parts[1]].apply(owner, args || []);
+    } catch (err) {
+      console.error("[WX] " + path + " failed", err);
+    }
+  }
 
-function save() {
-  try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* storage blocked */ }
-}
+  WX.renderAll = function () {
+    var weather = WX.state.weather;
 
-function load() {
-  try { state = JSON.parse(localStorage.getItem(KEY)) || state; } catch (e) { /* ignore */ }
-}
+    call("current.render");
+    call("forecast.render");
+    call("theme.apply", [weather]);
+    call("hourly.render", [WX.$("#hourly-chart"), weather, WX.units.current]);
+    call("prefs.renderFavourites");
+    call("prefs.renderUnitsToggle");
+    call("status.render");
 
-function render() {
-  // TODO: draw your UI into #app
-}
+    // compute() is Pawan's; guard it separately so a broken alerts module
+    // cannot take the rest of the dashboard down with it.
+    if (WX.alerts && typeof WX.alerts.compute === "function") {
+      call("alerts.render", [WX.$("#alerts"), WX.alerts.compute(weather)]);
+    }
+  };
 
-// ---- TODO(core): fill these in -------------------------------------------
-// TODO(core): city name -> coordinates
-function searchCity() {
-}
+  var booted = false;
 
-// TODO(core): coordinates -> forecast data
-function fetchWeather() {
-}
+  WX.boot = function () {
+    // Idempotent: boot() must never rebuild the regions or double-bind listeners.
+    if (booted) return;
+    booted = true;
 
-// TODO(core): forecast -> list of alerts with severity
-function computeAlerts() {
-}
+    call("units.init");
+    call("status.init");
+    call("prefs.init");
+    call("current.init");
+    call("hourly.init");
+    call("alerts.init");
 
-// TODO(core): draw the hourly chart
-function renderChart() {
-}
+    WX.events.on("units:changed", WX.renderAll);
+    WX.events.on("weather:loaded", WX.renderAll);
+    WX.events.on("weather:failed", WX.renderAll);
+    WX.events.on("city:changed", WX.renderAll);
+    WX.events.on("favourites:changed", WX.renderAll);
 
-// TODO(core): show alert cards
-function renderAlerts() {
-}
+    WX.renderAll();
+  };
 
-
-document.addEventListener("DOMContentLoaded", () => {
-  load();
-  $("#status").textContent = "script.js loaded.";
-  render();
-});
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", WX.boot);
+  } else {
+    WX.boot();
+  }
+})(window.WX = window.WX || {});

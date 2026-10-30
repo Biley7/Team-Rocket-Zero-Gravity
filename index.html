@@ -3,27 +3,60 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Weather and alerts dashboard — forecast data turned into clear warnings.">
   <title>Weather and Alerts Dashboard</title>
-  <style>
-    * { box-sizing: border-box; }
-    body { margin: 0; font-family: system-ui, sans-serif; line-height: 1.5; background: #fafafa; color: #1f2933; }
-    header, main { max-width: 960px; margin: 0 auto; padding: 1.5rem 1rem 0; }
-    h1 { margin: 0; font-size: 1.75rem; }
-    .tag { margin: .25rem 0 0; color: #52606d; }
-    .start { border: 1px solid #cbd2d9; border-radius: 6px; padding: 1rem 1.25rem; background: #fff; }
-  </style>
+
+  <!-- Stylesheet zone. OWNER: Core. Each owner adds their own <link> below and
+       styles only their own region — see ARCHITECTURE.md section 6.2. -->
+  <link rel="stylesheet" href="styles/base.css">
+  <link rel="stylesheet" href="styles/current.css">
+  <!-- Pawan: add styles/chart.css and styles/alerts.css here -->
+  <!-- Dighal: add styles/prefs.css here -->
 </head>
 <body>
-  <header>
-    <h1>Weather and Alerts Dashboard</h1>
-    <p class="tag">Turn forecast data into clear warnings.</p>
+  <a class="wx-skip" href="#app">Skip to dashboard</a>
+
+  <!-- Weather-dependent backdrop; themed by WX.theme.apply() -->
+  <div class="wx-bg" aria-hidden="true"><span></span><span></span><span></span></div>
+
+  <header class="wx-header">
+    <h1 class="wx-header__title">Weather &amp; Alerts</h1>
+    <p class="wx-header__tag">Forecast data turned into clear warnings.</p>
   </header>
-  <main id="app">
-    <div class="start">
-      <p id="status">Starting...</p>
-      <p>Replace this with your UI. The core tasks are listed in README.md.</p>
-    </div>
+
+  <!-- Region skeleton. OWNER: Core — one container per owner, so no developer
+       ever replaces another developer's DOM (ARCHITECTURE.md conflict C1). -->
+  <main id="app" class="wx-app">
+    <div id="status-banner" class="wx-region wx-region--status" role="status" aria-live="polite"></div>
+    <section id="city-search" class="wx-region wx-region--search" aria-label="City search"></section>
+    <section id="current-weather" class="wx-region wx-region--current" aria-label="Current conditions"></section>
+    <section id="alerts" class="wx-region wx-region--alerts" aria-label="Weather alerts"></section>
+    <section id="hourly-chart" class="wx-region wx-region--chart" aria-label="Hourly temperature and rain chart"></section>
+    <section id="forecast-7day" class="wx-region wx-region--forecast" aria-label="Seven day forecast"></section>
+    <section id="favourites" class="wx-region wx-region--favourites" aria-label="Favourite cities"></section>
+    <div id="units-toggle" class="wx-region wx-region--units" aria-label="Temperature units"></div>
   </main>
+
+  <footer class="wx-footer">
+    Weather data by <a href="https://open-meteo.com" rel="noopener">Open-Meteo</a>. Built for Hack Day Haldia x GRID.
+  </footer>
+
+  <!-- Script zone. ORDER MATTERS and each owner appends their own lines only.
+       Shared modules must load before the modules that use them, and script.js
+       (the bootstrap) must stay last. See ARCHITECTURE.md section 2. -->
+  <script src="js/events.js" defer></script>
+  <script src="js/state.js" defer></script>
+  <script src="js/time.js" defer></script>
+  <script src="js/wmo.js" defer></script>
+  <script src="js/normalize.js" defer></script>
+  <script src="js/storage.js" defer></script>
+  <script src="js/units.js" defer></script>
+  <script src="js/api.js" defer></script>
+  <script src="js/current.js" defer></script>
+  <script src="js/chart.js" defer></script>
+  <script src="js/alerts.js" defer></script>
+  <script src="js/prefs.js" defer></script>
+  <script src="js/status.js" defer></script>
   <script src="script.js" defer></script>
 </body>
 </html>
