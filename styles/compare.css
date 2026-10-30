@@ -1,0 +1,443 @@
+/* WeatherHack — side-by-side city comparison.
+   OWNER: Core (frontend architect). Scoped to wx-cmp-* so it never fights the
+   current-weather, chart, alerts or prefs stylesheets. Tokens only — every
+   colour, radius, space and duration comes from styles/base.css. */
+
+.wx-cmp { display: flex; flex-direction: column; gap: var(--wx-space-4); }
+
+/* `display: flex/grid` below would otherwise beat the `hidden` attribute. */
+.wx-cmp [hidden] { display: none !important; }
+
+.wx-cmp__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--wx-space-3);
+}
+.wx-cmp__intro { min-width: 0; }
+.wx-cmp__title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 650;
+  letter-spacing: -.02em;
+}
+.wx-cmp__sub {
+  margin: var(--wx-space-1) 0 0;
+  max-width: 46ch;
+  color: var(--wx-muted);
+  font-size: .85rem;
+}
+.wx-cmp__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--wx-space-2);
+}
+
+/* --------------------------------------------------------------- buttons */
+
+.wx-cmp__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--wx-tap);
+  padding: 0 var(--wx-space-4);
+  border: 1px solid var(--wx-border);
+  border-radius: var(--wx-radius-pill);
+  background: var(--wx-surface-solid);
+  color: var(--wx-text);
+  font: inherit;
+  font-size: .85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--wx-anim-fast) var(--wx-ease),
+              border-color var(--wx-anim-fast) var(--wx-ease),
+              transform var(--wx-anim-fast) var(--wx-ease);
+}
+.wx-cmp__btn:hover { border-color: var(--wx-border-strong); background: var(--wx-hover); }
+.wx-cmp__btn:active { transform: scale(.97); }
+.wx-cmp__btn--primary {
+  border-color: transparent;
+  background: var(--wx-accent);
+  color: var(--wx-surface-solid);
+}
+.wx-cmp__btn--primary:hover {
+  border-color: transparent;
+  background: var(--wx-accent-strong);
+}
+
+/* ------------------------------------------------------- city selectors */
+
+.wx-cmp__panel { display: flex; flex-direction: column; gap: var(--wx-space-4); }
+
+.wx-cmp__pickers {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--wx-space-3);
+}
+.wx-cmp__picker { position: relative; min-width: 0; }
+.wx-cmp__picker-label {
+  display: block;
+  margin-bottom: var(--wx-space-1);
+  color: var(--wx-muted);
+  font-size: .74rem;
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.wx-cmp__field {
+  display: flex;
+  align-items: center;
+  gap: var(--wx-space-2);
+  padding: var(--wx-space-1) var(--wx-space-2);
+  background: var(--wx-surface-solid);
+  border: 1px solid var(--wx-border);
+  border-radius: var(--wx-radius);
+  transition: border-color var(--wx-anim-base) var(--wx-ease),
+              box-shadow var(--wx-anim-base) var(--wx-ease);
+}
+.wx-cmp__field:hover { border-color: var(--wx-border-strong); }
+.wx-cmp__field:focus-within {
+  border-color: var(--wx-accent);
+  box-shadow: var(--wx-focus-ring);
+}
+.wx-cmp__input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: var(--wx-space-2) 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font: inherit;
+  font-size: .95rem;
+  color: var(--wx-text);
+}
+.wx-cmp__input::placeholder { color: var(--wx-muted); }
+
+.wx-cmp__clear {
+  position: relative;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--wx-muted);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+/* Keeps the 44px tap target without enlarging the visual dot. */
+.wx-cmp__clear::after {
+  content: "";
+  position: absolute;
+  inset: calc((30px - var(--wx-tap)) / 2);
+  border-radius: 50%;
+}
+.wx-cmp__clear:hover { background: var(--wx-accent-soft); color: var(--wx-text); }
+
+.wx-cmp__results {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + var(--wx-space-1));
+  z-index: 15;
+  margin: 0;
+  padding: var(--wx-space-2);
+  list-style: none;
+  max-height: min(18rem, 55vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--wx-surface-solid);
+  border: 1px solid var(--wx-border);
+  border-radius: var(--wx-radius);
+  box-shadow: var(--wx-shadow-lift);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-6px);
+  transition: opacity var(--wx-anim-base) var(--wx-ease),
+              transform var(--wx-anim-base) var(--wx-ease),
+              visibility var(--wx-anim-base);
+}
+.wx-cmp__results.is-open { opacity: 1; visibility: visible; transform: none; }
+
+.wx-cmp__option {
+  display: flex;
+  align-items: center;
+  gap: var(--wx-space-3);
+  min-height: var(--wx-tap);
+  padding: var(--wx-space-2) var(--wx-space-3);
+  border-radius: var(--wx-radius-sm);
+  cursor: pointer;
+  transition: background var(--wx-anim-fast) var(--wx-ease);
+}
+.wx-cmp__option:hover,
+.wx-cmp__option.is-active { background: var(--wx-accent-soft); }
+.wx-cmp__option.is-disabled { cursor: not-allowed; color: var(--wx-muted); }
+.wx-cmp__option.is-disabled:hover { background: var(--wx-hover); }
+
+.wx-cmp__option-flag { flex: 0 0 auto; font-size: 1.1rem; line-height: 1; }
+.wx-cmp__option-body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+.wx-cmp__option-name {
+  font-size: .92rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wx-cmp__option-meta {
+  color: var(--wx-muted);
+  font-size: .78rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wx-cmp__option-note {
+  flex: 0 0 auto;
+  padding: 0 var(--wx-space-2);
+  border-radius: var(--wx-radius-pill);
+  background: var(--wx-hover);
+  color: var(--wx-muted);
+  font-size: .68rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.wx-cmp__results-empty {
+  padding: var(--wx-space-3);
+  text-align: center;
+  color: var(--wx-muted);
+  font-size: .84rem;
+}
+
+.wx-cmp__message {
+  margin: 0;
+  padding: var(--wx-space-2) var(--wx-space-3);
+  border-radius: var(--wx-radius-sm);
+  background: var(--wx-accent-soft);
+  color: var(--wx-accent-strong);
+  font-size: .84rem;
+}
+
+/* ----------------------------------------------------------- city cards */
+
+.wx-cmp__cards {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--wx-space-3);
+}
+
+.wx-cmp__card {
+  min-width: 0;
+  padding: var(--wx-space-4);
+  background: var(--wx-surface);
+  border: 1px solid var(--wx-border);
+  border-radius: var(--wx-radius);
+}
+.wx-cmp__card--empty {
+  display: grid;
+  place-items: center;
+  min-height: 12rem;
+  border-style: dashed;
+  background: transparent;
+}
+
+.wx-cmp__card-head { display: flex; flex-direction: column; gap: 2px; }
+.wx-cmp__flag { margin: 0; font-size: 1.05rem; line-height: 1.2; }
+.wx-cmp__city {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 650;
+  letter-spacing: -.02em;
+  overflow-wrap: anywhere;
+}
+.wx-cmp__region {
+  margin: 0;
+  color: var(--wx-muted);
+  font-size: .78rem;
+  overflow-wrap: anywhere;
+}
+.wx-cmp__clock,
+.wx-cmp__updated {
+  margin: 0;
+  color: var(--wx-muted);
+  font-size: .74rem;
+  font-variant-numeric: tabular-nums;
+}
+.wx-cmp__clock { margin-top: var(--wx-space-1); }
+.wx-cmp__clock:empty,
+.wx-cmp__updated:empty { display: none; }
+
+.wx-cmp__hero {
+  display: flex;
+  align-items: center;
+  gap: var(--wx-space-3);
+  min-height: 4rem;
+  margin: var(--wx-space-3) 0;
+}
+.wx-cmp__icon {
+  flex: 0 0 auto;
+  display: block;
+  width: 40px;
+  height: 40px;
+  color: var(--wx-accent);
+}
+.wx-cmp__icon svg { width: 100%; height: 100%; }
+.wx-cmp__reading { min-width: 0; }
+.wx-cmp__temp {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--wx-space-2);
+  margin: 0;
+  font-size: clamp(1.7rem, 4vw, 2.1rem);
+  font-weight: 700;
+  letter-spacing: -.03em;
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+}
+.wx-cmp__desc {
+  margin: var(--wx-space-1) 0 0;
+  color: var(--wx-muted);
+  font-size: .84rem;
+  overflow-wrap: anywhere;
+}
+
+.wx-cmp__metrics {
+  margin: 0;
+  padding-top: var(--wx-space-2);
+  border-top: 1px solid var(--wx-border);
+}
+.wx-cmp__metric {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--wx-space-3);
+  padding: var(--wx-space-2) 0;
+}
+.wx-cmp__metric + .wx-cmp__metric { border-top: 1px solid var(--wx-border); }
+.wx-cmp__metric-label {
+  margin: 0;
+  color: var(--wx-muted);
+  font-size: .78rem;
+}
+.wx-cmp__metric-value {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: var(--wx-space-2);
+  margin: 0;
+  text-align: right;
+  font-size: .88rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The one restrained comparison indicator: it only ever marks the side that is
+   meaningfully ahead, and the sign carries the meaning on its own. */
+.wx-cmp__delta {
+  flex: 0 0 auto;
+  padding: 0 var(--wx-space-2);
+  border-radius: var(--wx-radius-pill);
+  background: var(--wx-accent-soft);
+  color: var(--wx-accent-strong);
+  font-size: .7rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.wx-cmp__delta[data-dir="down"] {
+  background: var(--wx-hover);
+  color: var(--wx-muted);
+}
+
+.wx-cmp__state { padding: var(--wx-space-3) 0; }
+.wx-cmp__state-text { margin: 0 0 var(--wx-space-3); color: var(--wx-muted); font-size: .85rem; }
+.wx-cmp__state-text--error { color: var(--wx-sev-severe); }
+.wx-cmp__state.is-loading .wx-cmp__state-text { animation: wx-cmp-pulse 1.4s ease-in-out infinite; }
+@keyframes wx-cmp-pulse { 50% { opacity: .55; } }
+
+.wx-cmp__stale {
+  margin: var(--wx-space-3) 0 0;
+  padding: var(--wx-space-2);
+  border-radius: var(--wx-radius-sm);
+  background: var(--wx-sev-moderate-soft);
+  color: var(--wx-text);
+  font-size: .78rem;
+}
+
+.wx-cmp__placeholder { text-align: center; }
+.wx-cmp__placeholder-title {
+  margin: 0;
+  color: var(--wx-muted);
+  font-size: .74rem;
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+.wx-cmp__placeholder-text {
+  margin: var(--wx-space-2) 0 0;
+  color: var(--wx-muted);
+  font-size: .84rem;
+}
+
+/* ----------------------------------------------------------- the summary */
+
+.wx-cmp__summary { border-top: 1px solid var(--wx-border); padding-top: var(--wx-space-3); }
+.wx-cmp__summary-title {
+  margin: 0 0 var(--wx-space-2);
+  color: var(--wx-muted);
+  font-size: .74rem;
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+.wx-cmp__summary-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wx-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.wx-cmp__summary-item {
+  position: relative;
+  padding-left: var(--wx-space-4);
+  font-size: .88rem;
+}
+.wx-cmp__summary-item::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: .55em;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--wx-accent);
+}
+.wx-cmp__summary-empty { margin: 0; color: var(--wx-muted); font-size: .85rem; }
+.wx-cmp__summary-list:not(:empty) + .wx-cmp__summary-empty { display: none; }
+
+/* ---------------------------------------------------------- responsive */
+
+/* Tablet and up: the selector row and the two city cards each become two
+   balanced columns, matching the dashboard's own 640px tier. */
+@media (min-width: 640px) {
+  .wx-cmp__pickers { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .wx-cmp__cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--wx-space-4); }
+}
+
+/* Small phones: stack everything, keep the labels readable and never scroll
+   sideways. */
+@media (max-width: 480px) {
+  .wx-cmp__head { align-items: flex-start; }
+  .wx-cmp__actions { width: 100%; }
+  .wx-cmp__btn { flex: 1 1 auto; }
+  .wx-cmp__card { padding: var(--wx-space-3); }
+  .wx-cmp__metric-label { font-size: .74rem; }
+  .wx-cmp__metric-value { font-size: .82rem; }
+  .wx-cmp__delta { font-size: .66rem; }
+}

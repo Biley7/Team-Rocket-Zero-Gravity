@@ -14,6 +14,7 @@
   <link rel="stylesheet" href="styles/chart.css"/>
   <link rel="stylesheet" href="styles/alerts.css"/>
   <link rel="stylesheet" href="styles/prefs.css" />
+  <link rel="stylesheet" href="styles/compare.css"/>
 </head>
 <body>
   <a class="wx-skip" href="#app">Skip to dashboard</a>
@@ -35,6 +36,7 @@
     <section id="city-search" class="wx-region wx-region--search" aria-label="City search"></section>
     <section id="current-weather" class="wx-region wx-region--current" aria-label="Current conditions"></section>
     <section id="forecast-7day" class="wx-region wx-region--forecast" aria-label="Seven day forecast"></section>
+    <section id="compare" class="wx-region wx-region--compare" aria-label="Compare cities"></section>
     <section id="alerts" class="wx-region wx-region--alerts" aria-label="Weather alerts"></section>
     <section id="hourly-chart" class="wx-region wx-region--chart" aria-label="Hourly temperature and rain chart"></section>
     <section id="favourites" class="wx-region wx-region--favourites" aria-label="Favourite cities"></section>
@@ -63,6 +65,8 @@
   <script src="js/alerts.js" defer></script>
   <script src="js/prefs.js" defer></script>
   <script src="js/status.js" defer></script>
+  <!-- compare.js reads WX.api + WX.units + WX.errors, so it loads after those. -->
+  <script src="js/compare.js" defer></script>
   <script src="script.js" defer></script>
 </body>
 </html>

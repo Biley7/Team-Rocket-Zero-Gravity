@@ -381,6 +381,10 @@ WX.events.emit(name, payload)
 | `WX.alerts.compute(weather)` (was `computeAlerts`) | `js/alerts.js` | **Pawan** |
 | `WX.alerts.render(mount, alerts)` (was `renderAlerts`) | `js/alerts.js` | **Pawan** |
 | `WX.units.formatTemp/formatWind/toggle` | `js/units.js` | **Dighal** |
+| `WX.units.formatDelta(deltaC, opts)` | `js/units.js` | **Dighal** |
+| `WX.errors.friendly(err)` | `js/current.js` | **You** |
+| `WX.compare.init/render` | `js/compare.js` | **You** |
+| `WX.compare.open/close/pick/clear/swap/refresh/summary/cityKeys` | `js/compare.js` | **You** |
 | `WX.storage.get/set/remove` | `js/storage.js` | **Dighal** |
 | `WX.storage.saveFavourites/loadFavourites` | `js/storage.js` | **Dighal** |
 | `WX.storage.cacheWeather/readCache` | `js/storage.js` | **Dighal** |
@@ -402,6 +406,7 @@ WX.boot = function () {
   WX.current.init();      // You: search form wiring
   WX.hourly.init();       // Pawan
   WX.alerts.init();       // Pawan
+  WX.compare.init();      // You: optional two-city comparison (own region + state)
   WX.scene.init();        // You: builds the shared atmosphere once
 
   WX.status.restore();    // Dighal: paint from cache if present, then refresh
@@ -413,6 +418,7 @@ WX.renderAll = function () {
   WX.forecast.render();
   WX.theme.apply(WX.state.weather);
   WX.hourly.render(WX.$("#hourly-chart"), WX.state.weather, WX.units.current);
+  WX.compare.render();   // reads only its own two cities — never WX.state.weather
   WX.alerts.render(WX.$("#alerts"), WX.alerts.compute(WX.state.weather));
   WX.prefs.renderFavourites();
   WX.prefs.renderUnitsToggle();
@@ -439,6 +445,7 @@ Every module exposes `init()` that only wires its own listeners, and `render(...
 | `#hourly-chart` | Pawan | `#hourly-chart`, `#chart-canvas`, `#chart-legend`, `#chart-empty` |
 | `#alerts` | Pawan | `#alerts-list`, `#alerts-empty`, `.wx-alert` |
 | `#forecast-7day` | You | `#forecast-list`, `#forecast-summary`, `.wx-forecast-row`, `.wx-forecast-row__*`, `#forecast-empty` |
+| `#compare` | You | `#cmp-title`, `#cmp-launch`, `#cmp-close`, `#cmp-swap`, `#cmp-refresh`, `#cmp-panel`, `#cmp-message`, `#cmp-cards`, `#cmp-summary-list`, `#cmp-summary-empty`, `#cmp-input-a`, `#cmp-input-b`, `#cmp-clear-a`, `#cmp-clear-b`, `#cmp-results-a`, `#cmp-results-b`, `#cmp-card-a-name`, `#cmp-card-b-name`, `#cmp-option-{a\|b}-{index}`, `.wx-cmp__*` |
 | `#favourites` | Dighal | `#favourites-list`, `#fav-add`, `#fav-empty`, `.wx-fav` |
 | `#units-toggle` | Dighal | `#units-toggle`, `#units-label` |
 
@@ -448,13 +455,13 @@ IDs above are **reserved**. To add a new ID, add it to this table first — that
 
 - Prefix everything with `wx-`. BLOCK__ELEMENT--MODIFIER.
   `.wx-card`, `.wx-card__title`, `.wx-card--alert`, `.wx-alert--severe`
-- **Owner prefixes inside each file:** `wx-search-*`, `wx-current-*`, `wx-forecast-*`, `wx-scene*` (you) · `wx-chart-*`, `wx-alert-*` (Pawan) · `wx-fav-*`, `wx-units-*`, `wx-status-*` (Dighal).
+- **Owner prefixes inside each file:** `wx-search-*`, `wx-current-*`, `wx-forecast-*`, `wx-cmp-*`, `wx-scene*` (you) · `wx-chart-*`, `wx-alert-*` (Pawan) · `wx-fav-*`, `wx-units-*`, `wx-status-*` (Dighal).
 - State classes (global, shared vocabulary): `is-loading`, `is-hidden`, `is-empty`, `is-active`, `is-dimmed`.
 - Tokens live only in `styles/base.css` `:root` and are the shared design system. Groups: spacing `--wx-space-1..6`; radii `--wx-radius-sm`, `--wx-radius`, `--wx-radius-lg`, `--wx-radius-pill`; typography `--wx-font`; backgrounds `--wx-bg-base`, `--wx-grad-1..3`, `--wx-blob-1/2`; surfaces/borders `--wx-surface`, `--wx-surface-solid`, `--wx-hover`, `--wx-border`, `--wx-border-strong`; accents `--wx-accent`, `--wx-accent-strong`, `--wx-accent-soft`, `--wx-focus-ring`, `--wx-icon-color`; severity `--wx-sev-low|moderate|high|severe` plus matching `-soft` variants; elevation `--wx-shadow-sm`, `--wx-shadow`, `--wx-shadow-lift`; motion `--wx-anim-fast`, `--wx-anim-base`, `--wx-anim-slow`, `--wx-ease`; icons `--wx-icon-sm|md|lg`; layout `--wx-shell`, `--wx-tap`.
 - Consume tokens instead of hard-coding a colour, radius, duration or shadow. Add a new token in `base.css` rather than inventing a local value.
 - Focus is global: `:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible` paints a 2px `--wx-accent` outline at zero specificity, so a feature file may still override it.
 - **Never** use a bare element selector (`div`, `p`) inside a feature file. Scope to your prefix. This is what keeps five stylesheets from fighting.
-- Mobile-first, three tiers in `base.css`: single column below 640px; two equal columns `@media (min-width: 640px)` (tablet); asymmetric `1.15fr / 0.85fr` `@media (min-width: 880px)` (desktop). Every tier uses the same named `grid-template-areas` (`status`, `search`, `current`, `forecast`, `chart`, `alerts`, `favourites`, `units`) and `align-items: start`, so a region's placement never depends on another owner's CSS. `.wx-region` sets `min-width: 0` and empty regions collapse (`:empty { display: none }`) so no tier can overflow horizontally.
+- Mobile-first, three tiers in `base.css`: single column below 640px; two equal columns `@media (min-width: 640px)` (tablet); asymmetric `1.15fr / 0.85fr` `@media (min-width: 880px)` (desktop). Every tier uses the same named `grid-template-areas` (`status`, `search`, `current`, `forecast`, `compare`, `chart`, `alerts`, `favourites`, `units`) and `align-items: start`, so a region's placement never depends on another owner's CSS. `.wx-region` sets `min-width: 0` and empty regions collapse (`:empty { display: none }`) so no tier can overflow horizontally.
 
 ### 6.3 Theming via data attributes (you own; others only read)
 

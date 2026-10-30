@@ -200,6 +200,7 @@ body {
     "search"
     "current"
     "forecast"
+    "compare"
     "alerts"
     "chart"
     "favourites"
@@ -227,6 +228,7 @@ body {
 .wx-region--alerts { grid-area: alerts; }
 .wx-region--chart { grid-area: chart; }
 .wx-region--forecast { grid-area: forecast; }
+.wx-region--compare { grid-area: compare; }
 .wx-region--favourites { grid-area: favourites; }
 .wx-region--units { grid-area: units; }
 
@@ -281,6 +283,7 @@ body {
       "search     search"
       "current    current"
       "forecast   forecast"
+      "compare    compare"
       "chart      alerts"
       "favourites units";
     align-items: start;

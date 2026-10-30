@@ -739,5 +739,9 @@
     results: function () { return suggestions.slice(); }
   };
 
+  // Exposed so any other region that fetches its own city (compare.js) shows
+  // the same wording for the same failure instead of copying the switch.
+  WX.errors = { friendly: friendlyMessage };
+
   WX.loadWeather = loadWeather;
 })(window.WX = window.WX || {});

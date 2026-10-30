@@ -29,6 +29,9 @@
     call("forecast.render");
     call("theme.apply", [weather]);
     call("hourly.render", [WX.$("#hourly-chart"), weather, WX.units.current]);
+    // Comparison keeps its own two cities in module state, so it repaints from
+    // the units event rather than following the dashboard's selected city.
+    call("compare.render");
     call("prefs.renderFavourites");
     call("prefs.renderUnitsToggle");
     call("status.render");
@@ -53,6 +56,7 @@
     call("current.init");
     call("hourly.init");
     call("alerts.init");
+    call("compare.init");
     // Builds the shared atmosphere once. apply() is wired into renderAll below
     // through the "theme.apply" call, so it follows every repaint.
     call("scene.init");

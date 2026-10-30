@@ -62,6 +62,20 @@
       return units.formatTemp(minC) + "/" + units.formatTemp(maxC);
     },
 
+    // A temperature DIFFERENCE, not a reading: Fahrenheit scales by 9/5 with no
+    // 32 offset (a 6 °C gap is an 11 °F gap). `options.sign` prefixes +/-, and
+    // `options.unit` appends the active scale letter. Used by city comparison.
+    formatDelta: function (celsiusDelta, options) {
+      if (!isNum(celsiusDelta)) return "\u2014";
+      var scaled = units.current === "F" ? (celsiusDelta * 9) / 5 : celsiusDelta;
+      var rounded = Math.round(scaled);
+      var out = "";
+      if (options && options.sign && rounded !== 0) out += rounded > 0 ? "+" : "\u2212";
+      out += Math.abs(rounded) + units.DEGREE;
+      if (options && options.unit) out += units.current;
+      return out;
+    },
+
     // Wind stays metric (km/h) — the toggle is a temperature control only.
     formatWind: function (kmh) {
       if (!isNum(kmh)) return "—";
