@@ -1,110 +1,250 @@
-// Core Task 3: Canvas chart for hourly temperature and rainfall.
-(function () {
-  const WX = window.WX = window.WX || {};
+// WeatherHack — hourly temperature & rainfall chart.
+// OWNER: Pawan. Region owned: #hourly-chart (ids: #chart-canvas, #chart-legend,
+// #chart-empty — ARCHITECTURE.md 6.1).
+//
+// Contract: init() builds this region's DOM once; render(mount, weather, units)
+// paints it. Data is read from the shared normalized object (weather.hourly.*),
+// never from the raw Open-Meteo payload, and every temperature label goes
+// through WX.units so Dighal's C/F toggle applies here too.
+(function (WX) {
+  "use strict";
+
   WX.hourly = WX.hourly || {};
 
-  WX.hourly.render = function (hourly) {
-    const canvas = document.getElementById("hourlyChart");
-    if (!canvas || !hourly) return;
-    const ctx = canvas.getContext("2d");
+  var HOURS = 24;        // window shown in the chart
+  var LABEL_EVERY = 4;   // an x-axis label every 4 hours
+  var FONT = "system-ui, -apple-system, 'Segoe UI', sans-serif";
+
+  var bound = false;
+  var resizeTimer = null;
+
+  function isNum(value) {
+    return typeof value === "number" && isFinite(value);
+  }
+
+  function series(source, key) {
+    var arr = source && source[key];
+    return Array.isArray(arr) ? arr : [];
+  }
+
+  function maxOf(values) {
+    return values.reduce(function (top, value) { return value > top ? value : top; }, -Infinity);
+  }
+
+  // Canvas cannot read CSS custom properties, so grab the few colours we need
+  // off <body> at paint time. Keeps the chart in step with the day/night theme
+  // instead of hard-coding a hex that would be wrong in the other mode.
+  function token(name, fallback) {
+    try {
+      var value = getComputedStyle(document.body).getPropertyValue(name);
+      value = value ? value.trim() : "";
+      return value || fallback;
+    } catch (err) {
+      return fallback;
+    }
+  }
+
+  // ------------------------------------------------------------------ build
+
+  function buildCard(mount) {
+    var card = WX.el("section", "wx-card wx-chart");
+    card.setAttribute("aria-labelledby", "chart-title");
+
+    var head = WX.el("header", "wx-chart__head");
+    var title = WX.el("h2", "wx-chart__title", "Next 24 hours");
+    title.id = "chart-title";
+    head.appendChild(title);
+
+    // Doubles as the legend and as the canvas' accessible text description.
+    var legend = WX.el("p", "wx-chart__legend");
+    legend.id = "chart-legend";
+    head.appendChild(legend);
+    card.appendChild(head);
+
+    var empty = WX.el("p", "wx-empty wx-chart__empty", "Hourly forecast data is not available yet.");
+    empty.id = "chart-empty";
+    card.appendChild(empty);
+
+    var plot = WX.el("div", "wx-chart__plot");
+    var canvas = document.createElement("canvas");
+    canvas.id = "chart-canvas";
+    canvas.className = "wx-chart__canvas";
+    canvas.setAttribute("role", "img");
+    canvas.setAttribute("aria-labelledby", "chart-legend");
+    plot.appendChild(canvas);
+    card.appendChild(plot);
+
+    mount.appendChild(card);
+  }
+
+  function keyNode(kind, text) {
+    return WX.el("span", "wx-chart__key wx-chart__key--" + kind, text);
+  }
+
+  // ------------------------------------------------------------------- draw
+
+  function draw(canvas, times, temps, rain, count) {
+    if (!canvas || typeof canvas.getContext !== "function") return;
+    var ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const times = hourly.time || [];
-    const temperatures = hourly.temperature_2m || [];
-    const rain = hourly.precipitation || [];
-    const count = Math.min(24, times.length, temperatures.length);
-
-    const width = Math.max(300, canvas.clientWidth || 600);
-    const height = Math.max(200, canvas.clientHeight || 260);
-    const ratio = window.devicePixelRatio || 1;
+    var width = Math.max(280, canvas.clientWidth || 600);
+    var height = Math.max(200, canvas.clientHeight || 260);
+    var ratio = Math.min(window.devicePixelRatio || 1, 2); // cap: 3x wastes memory
     canvas.width = Math.round(width * ratio);
     canvas.height = Math.round(height * ratio);
     ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
     ctx.clearRect(0, 0, width, height);
 
-    if (!count) {
-      ctx.fillStyle = "#52606d";
-      ctx.font = "14px system-ui";
-      ctx.fillText("Hourly forecast data is not available.", 12, 28);
+    var validTemps = temps.filter(isNum);
+    if (!validTemps.length) return;
+
+    var low = Math.floor(Math.min.apply(null, validTemps) - 2);
+    var high = Math.max(low + 1, Math.ceil(Math.max.apply(null, validTemps) + 2));
+    var maxRain = Math.max(1, maxOf(rain.filter(isNum)));
+
+    var gridColor = token("--wx-border", "rgba(13, 27, 42, .10)");
+    var labelColor = token("--wx-muted", "#5a6b80");
+    // Warm for temperature, accent-blue for rain — reused tokens, so both adapt
+    // automatically to the night palette.
+    var tempColor = token("--wx-sev-high", "#e0642e");
+    var rainColor = token("--wx-accent", "#2f6fed");
+
+    var pad = { top: 16, right: 14, bottom: 34, left: 46 };
+    var plotW = width - pad.left - pad.right;
+    var plotH = height - pad.top - pad.bottom;
+    function xAt(i) {
+      return pad.left + (count === 1 ? plotW / 2 : (i / (count - 1)) * plotW);
+    }
+    function yAt(value) {
+      return pad.top + ((high - value) / (high - low)) * plotH;
+    }
+
+    // Horizontal gridlines + temperature axis labels.
+    ctx.font = "11px " + FONT;
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = gridColor;
+    ctx.fillStyle = labelColor;
+    for (var g = 0; g <= 4; g++) {
+      var gy = pad.top + (plotH * g) / 4;
+      ctx.beginPath();
+      ctx.moveTo(pad.left, gy);
+      ctx.lineTo(width - pad.right, gy);
+      ctx.stroke();
+      ctx.fillText(WX.units.formatTemp(high - ((high - low) * g) / 4), 4, gy + 4);
+    }
+
+    // Rainfall bars, drawn behind the temperature line.
+    ctx.fillStyle = rainColor;
+    var barW = Math.max(2, (plotW / count) * 0.5);
+    for (var b = 0; b < count; b++) {
+      var amount = isNum(rain[b]) ? rain[b] : 0;
+      if (amount <= 0) continue;
+      var barH = plotH * 0.42 * (amount / maxRain);
+      ctx.fillRect(xAt(b) - barW / 2, pad.top + plotH - barH, barW, barH);
+    }
+
+    // Temperature polyline — a null value breaks the line instead of faking a 0.
+    ctx.beginPath();
+    ctx.strokeStyle = tempColor;
+    ctx.lineWidth = 2.5;
+    ctx.lineJoin = "round";
+    ctx.lineCap = "round";
+    var started = false;
+    for (var i = 0; i < count; i++) {
+      if (!isNum(temps[i])) { started = false; continue; }
+      if (!started) {
+        ctx.moveTo(xAt(i), yAt(temps[i]));
+        started = true;
+      } else {
+        ctx.lineTo(xAt(i), yAt(temps[i]));
+      }
+    }
+    ctx.stroke();
+
+    // Point markers.
+    ctx.fillStyle = tempColor;
+    for (var d = 0; d < count; d++) {
+      if (!isNum(temps[d])) continue;
+      ctx.beginPath();
+      ctx.arc(xAt(d), yAt(temps[d]), 2.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Hour labels in the CITY's timezone (never the viewer's).
+    ctx.fillStyle = labelColor;
+    for (var h = 0; h < count; h += LABEL_EVERY) {
+      var label = WX.time.formatHour(times[h]);
+      ctx.fillText(label, Math.min(width - 40, Math.max(pad.left - 6, xAt(h) - 15)), height - 10);
+    }
+  }
+
+  // ----------------------------------------------------------------- render
+
+  function render(mount, weather) {
+    mount = mount || WX.$("#hourly-chart");
+    if (!mount) return;
+    if (!mount.querySelector(".wx-chart")) buildCard(mount);
+
+    var canvas = WX.$("#chart-canvas", mount);
+    var legend = WX.$("#chart-legend", mount);
+    var empty = WX.$("#chart-empty", mount);
+    var plot = WX.$(".wx-chart__plot", mount);
+
+    var hourly = weather ? weather.hourly : null;
+    var times = series(hourly, "time");
+    var temps = series(hourly, "temperature").slice(0, HOURS);
+    var rain = series(hourly, "precipitation").slice(0, HOURS);
+    var count = Math.min(HOURS, times.length, temps.length);
+    var validTemps = temps.filter(isNum);
+
+    if (!count || !validTemps.length) {
+      legend.textContent = "";
+      empty.hidden = false;
+      empty.classList.remove("is-hidden");
+      plot.hidden = true;
       return;
     }
 
-    const temps = temperatures.slice(0, count).map(Number);
-    const rainfall = Array.from({ length: count }, (_, i) => Number(rain[i] || 0));
-    const validTemps = temps.filter(Number.isFinite);
-    if (!validTemps.length) return;
+    empty.hidden = true;
+    empty.classList.add("is-hidden");
+    plot.hidden = false;
 
-    const minTemp = Math.floor(Math.min(...validTemps) - 2);
-    const maxTemp = Math.max(minTemp + 1, Math.ceil(Math.max(...validTemps) + 2));
-    const maxRain = Math.max(1, ...rainfall.filter(Number.isFinite));
-    const pad = { top: 32, right: 16, bottom: 38, left: 42 };
-    const chartWidth = width - pad.left - pad.right;
-    const chartHeight = height - pad.top - pad.bottom;
-    const x = i => pad.left + (count === 1 ? chartWidth / 2 : i / (count - 1) * chartWidth);
-    const yTemp = value => pad.top + (maxTemp - value) / (maxTemp - minTemp) * chartHeight;
+    // Text legend/summary: the accessible fallback required by ARCHITECTURE.md
+    // 6.4, a readable summary of the same numbers the canvas draws, and the
+    // place that names the active unit (the axis labels alone are just "30°").
+    var rainValues = rain.filter(isNum);
+    var rainMax = rainValues.length ? maxOf(rainValues) : 0;
+    legend.replaceChildren();
+    legend.appendChild(keyNode("temp", "Temperature (" + WX.units.DEGREE + WX.units.current + ")"));
+    legend.appendChild(keyNode("rain", "Rain (mm)"));
+    legend.appendChild(WX.el("span", "wx-chart__summary",
+      "Range " + WX.units.formatRange(Math.min.apply(null, validTemps), Math.max.apply(null, validTemps)) +
+      " \u00B7 rain up to " + WX.units.formatPrecip(rainMax)));
 
-    ctx.font = "11px system-ui";
-    ctx.lineWidth = 1;
-    ctx.strokeStyle = "#e5e7eb";
-    ctx.fillStyle = "#52606d";
-    for (let i = 0; i <= 4; i++) {
-      const y = pad.top + chartHeight * i / 4;
-      ctx.beginPath();
-      ctx.moveTo(pad.left, y);
-      ctx.lineTo(width - pad.right, y);
-      ctx.stroke();
-      const value = maxTemp - (maxTemp - minTemp) * i / 4;
-      ctx.fillText(`${Math.round(value)}°`, 4, y + 4);
-    }
+    draw(canvas, times, temps, rain, count);
+  }
 
-    rainfall.forEach((value, i) => {
-      if (!Number.isFinite(value) || value <= 0) return;
-      const barWidth = Math.max(2, chartWidth / count * 0.5);
-      const barHeight = chartHeight * 0.42 * value / maxRain;
-      ctx.fillStyle = "#93c5fd";
-      ctx.fillRect(x(i) - barWidth / 2, pad.top + chartHeight - barHeight, barWidth, barHeight);
+  // ------------------------------------------------------------------- init
+
+  function bindResize() {
+    if (bound) return;
+    bound = true;
+    window.addEventListener("resize", function () {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(function () {
+        // Redraw from the shared state — the canvas backing store has to be
+        // re-measured after the grid reflows.
+        render(WX.$("#hourly-chart"), WX.state.weather);
+      }, 150);
     });
+  }
 
-    ctx.beginPath();
-    ctx.strokeStyle = "#ea580c";
-    ctx.lineWidth = 2.5;
-    let started = false;
-    temps.forEach((value, i) => {
-      if (!Number.isFinite(value)) { started = false; return; }
-      if (!started) { ctx.moveTo(x(i), yTemp(value)); started = true; }
-      else ctx.lineTo(x(i), yTemp(value));
-    });
-    ctx.stroke();
-
-    temps.forEach((value, i) => {
-      if (!Number.isFinite(value)) return;
-      ctx.beginPath();
-      ctx.fillStyle = "#ea580c";
-      ctx.arc(x(i), yTemp(value), 2.5, 0, Math.PI * 2);
-      ctx.fill();
-    });
-
-    for (let i = 0; i < count; i += 4) {
-      const label = String(times[i]).slice(11, 16) || String(times[i]);
-      ctx.fillStyle = "#52606d";
-      ctx.fillText(label, Math.min(width - 38, Math.max(pad.left, x(i) - 14)), height - 12);
-    }
-
-    ctx.font = "12px system-ui";
-    ctx.fillStyle = "#ea580c";
-    ctx.fillText("● Temperature (°C)", pad.left, 16);
-    ctx.fillStyle = "#2563eb";
-    ctx.fillText("■ Rain (mm)", pad.left + 145, 16);
-
-    const summary = document.getElementById("chart-summary");
-    if (summary) {
-      summary.textContent = `Next 24 hours: ${Math.min(...validTemps).toFixed(1)}–${Math.max(...validTemps).toFixed(1)}°C; maximum hourly rainfall ${Math.max(0, ...rainfall.filter(Number.isFinite)).toFixed(1)} mm.`;
-    }
+  WX.hourly.init = function () {
+    var mount = WX.$("#hourly-chart");
+    if (mount && !mount.querySelector(".wx-chart")) buildCard(mount);
+    bindResize();
   };
 
-  window.addEventListener("resize", () => {
-    const dashboard = window.WeatherDashboard;
-    const current = dashboard && dashboard.getState();
-    if (current?.forecast) WX.hourly.render(current.forecast.hourly);
-  });
-})();
+  WX.hourly.render = render;
+})(window.WX = window.WX || {});

@@ -1,15 +1,92 @@
-/* Core Task 3: hourly chart layout */
-.weather-section {
-  margin: 1.5rem 0;
-  padding: 1.25rem;
-  background: #fff;
-  border: 1px solid #d9e2ec;
-  border-radius: 10px;
+/* WeatherHack — hourly temperature & rain chart.
+   OWNER: Pawan. Region: #hourly-chart. Prefix: .wx-chart-*
+   Tokens only (ARCHITECTURE.md 6.2) — no hard-coded colour, radius or shadow.
+   The canvas itself is painted in js/chart.js, which reads the same --wx-*
+   tokens back off <body> so the plot follows the day/night palette. */
+
+.wx-chart {
+  display: flex;
+  flex-direction: column;
+  gap: var(--wx-space-4);
 }
-.weather-section h2 { margin-top: 0; font-size: 1.25rem; }
-#hourlyChart { display: block; width: 100%; height: 260px; }
-.chart-summary { color: #52606d; font-size: .92rem; }
-@media (max-width: 600px) {
-  .weather-section { padding: 1rem; }
-  #hourlyChart { height: 220px; }
+
+.wx-chart__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--wx-space-3);
+  flex-wrap: wrap;
+}
+
+.wx-chart__title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+/* Text legend + readable summary. Also the canvas' accessible description. */
+.wx-chart__legend {
+  display: flex;
+  align-items: center;
+  gap: var(--wx-space-3);
+  flex-wrap: wrap;
+  margin: 0;
+  color: var(--wx-muted);
+  font-size: 0.82rem;
+}
+
+.wx-chart__key {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  white-space: nowrap;
+}
+
+.wx-chart__key::before {
+  content: "";
+  flex: none;
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: var(--wx-radius-pill);
+  background: var(--wx-sev-high);
+}
+
+.wx-chart__key--rain::before {
+  border-radius: 2px;
+  background: var(--wx-accent);
+}
+
+.wx-chart__summary {
+  color: var(--wx-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.wx-chart__empty {
+  margin: 0;
+}
+
+.wx-chart__plot {
+  position: relative;
+  width: 100%;
+  height: 260px;
+}
+
+.wx-chart__plot[hidden] {
+  display: none;
+}
+
+.wx-chart__canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+@media (max-width: 640px) {
+  .wx-chart__plot { height: 230px; }
+}
+
+@media (max-width: 480px) {
+  .wx-chart__plot { height: 200px; }
+  .wx-chart__legend { font-size: 0.78rem; }
 }
