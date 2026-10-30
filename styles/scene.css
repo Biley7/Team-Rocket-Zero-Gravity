@@ -1,0 +1,463 @@
+/* WeatherHack — atmospheric weather animation system.
+   OWNER: Core (frontend architect).
+   Pairs with js/scene.js. No canvas, no library, no requestAnimationFrame:
+   every effect is a CSS animation over a fixed set of layers, so switching
+   cities can never grow the DOM and nothing can leak.
+
+   State attributes (written only by WX.scene.apply — ARCHITECTURE.md 6.3):
+     body[data-scene]      clear | partly | clouds | rain | thunder | snow | fog
+     body[data-intensity]  low | med | high | max      particle density + speed
+     body[data-quality]    full | reduced              weak-device budget
+     body[data-time]       day | night
+     html.wx-scene-paused  tab hidden
+
+   Layer order inside .wx-scene, back to front:
+     tint · sun/moon · rays · stars · motes · clouds · rain · snow · fog ·
+     flash · scrim
+   The stack lives inside .wx-bg (z-index -1), so it always paints behind the
+   dashboard. The closing scrim keeps contrast so text readability never
+   depends on the weather. */
+
+/* ---------------------------------------------------------- foundations */
+
+.wx-scene {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.wx-scene > * {
+  position: absolute;
+  inset: 0;
+  transition: opacity .7s ease;
+}
+
+/* Idle layers park themselves. A 64-drop rain layer costs nothing while the
+   dashboard is showing clear skies, and switching scenes simply resumes it. */
+.wx-scene__star,
+.wx-scene__mote,
+.wx-scene__cloud,
+.wx-scene__drop,
+.wx-scene__flake,
+.wx-scene__band,
+.wx-scene__rays,
+.wx-scene__sun,
+.wx-scene__moon {
+  animation-play-state: paused;
+}
+
+/* Hidden tab: freeze the atmosphere instead of letting the browser throttle it. */
+html.wx-scene-paused .wx-scene * {
+  animation-play-state: paused !important;
+}
+
+/* ----------------------------------------------------- ambient colour wash */
+
+.wx-scene__tint {
+  background:
+    radial-gradient(92% 72% at 84% -14%, var(--wx-blob-1) 0%, rgba(255, 255, 255, 0) 62%),
+    radial-gradient(88% 68% at 4% 106%, var(--wx-blob-2) 0%, rgba(255, 255, 255, 0) 60%);
+  opacity: .5;
+  transition: opacity .9s ease, background .9s ease;
+}
+body[data-scene="thunder"] .wx-scene__tint { opacity: .6; }
+body[data-scene="fog"] .wx-scene__tint { opacity: .34; }
+body[data-scene="snow"] .wx-scene__tint { opacity: .58; }
+
+/* -------------------------------------------------------------- sun / moon */
+
+.wx-scene__sun,
+.wx-scene__moon {
+  inset: auto;
+  top: clamp(-5rem, -7vh, -2.5rem);
+  right: 9vw;
+  width: clamp(7rem, 15vw, 12rem);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  opacity: 0;
+  transition: opacity 1.1s ease;
+}
+
+.wx-scene__sun {
+  background: radial-gradient(circle at 38% 34%, #fffdf3 0%, #ffeaa6 40%, rgba(255, 206, 110, .55) 62%, rgba(255, 190, 80, 0) 76%);
+  animation: wx-scene-breathe 16s ease-in-out infinite;
+}
+
+.wx-scene__moon {
+  top: clamp(-3.5rem, -5vh, -1.5rem);
+  background: radial-gradient(circle at 36% 32%, #ffffff 0%, #e8efff 42%, rgba(190, 208, 255, .4) 64%, rgba(190, 208, 255, 0) 78%);
+  animation: wx-scene-breathe 22s ease-in-out infinite;
+}
+
+@keyframes wx-scene-breathe {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.035); }
+}
+
+/* ------------------------------------------------------------ light shafts */
+
+.wx-scene__rays {
+  inset: -34% -12% auto -12%;
+  height: 96%;
+  transform-origin: 84% 4%;
+  background: conic-gradient(from 204deg at 84% 4%,
+    rgba(255, 240, 196, .26) 0deg,
+    rgba(255, 240, 196, 0) 16deg,
+    rgba(255, 240, 196, .16) 27deg,
+    rgba(255, 240, 196, 0) 42deg);
+  opacity: 0;
+  animation: wx-scene-rays 78s linear infinite;
+}
+@keyframes wx-scene-rays {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* ----------------------------------------------------------------- sky */
+
+.wx-scene__stars {
+  opacity: 0;
+  transition: opacity 1.2s ease;
+}
+.wx-scene__star {
+  position: absolute;
+  top: var(--y);
+  left: var(--x);
+  width: var(--s);
+  height: var(--s);
+  border-radius: 50%;
+  background: #fff;
+  opacity: var(--o);
+  animation: wx-scene-twinkle var(--d) ease-in-out var(--delay) infinite;
+}
+@keyframes wx-scene-twinkle {
+  0%, 100% { opacity: calc(var(--o) * .34); transform: scale(.85); }
+  50%      { opacity: var(--o); transform: scale(1); }
+}
+
+.wx-scene__motes {
+  opacity: 0;
+  transition: opacity 1.4s ease;
+}
+.wx-scene__mote {
+  position: absolute;
+  top: var(--y);
+  left: var(--x);
+  width: var(--s);
+  height: var(--s);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 248, 220, .95) 0%, rgba(255, 248, 220, 0) 72%);
+  opacity: 0;
+  animation: wx-scene-mote var(--d) ease-in-out var(--delay) infinite;
+}
+@keyframes wx-scene-mote {
+  0%   { transform: translate3d(0, 0, 0); opacity: 0; }
+  18%  { opacity: var(--o); }
+  82%  { opacity: var(--o); }
+  100% { transform: translate3d(var(--dx), -46px, 0); opacity: 0; }
+}
+
+/* --------------------------------------------------------------- clouds */
+
+.wx-scene__clouds {
+  opacity: 0;
+  transition: opacity 1s ease;
+}
+.wx-scene__cloud {
+  position: absolute;
+  top: var(--y);
+  left: var(--x);
+  width: var(--w);
+  height: var(--h);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .82);
+  opacity: 0;
+  filter: blur(13px);
+  animation: wx-scene-cloud-drift var(--d) linear var(--delay) infinite;
+}
+body[data-time="night"] .wx-scene__cloud { background: rgba(184, 200, 236, .62); }
+
+/* Enter from the left, exit on the right, fading at both edges so the loop
+   never pops. The random --x spreads the bank across the viewport. */
+@keyframes wx-scene-cloud-drift {
+  0%   { transform: translate3d(-170%, 0, 0); opacity: 0; }
+  9%   { opacity: var(--o); }
+  88%  { opacity: var(--o); }
+  100% { transform: translate3d(calc(100vw + 26rem), 0, 0); opacity: 0; }
+}
+
+/* Fewer clouds when the weather is mild: density follows the intensity band. */
+body[data-intensity="low"] .wx-scene__cloud:nth-child(n+3) { opacity: 0; }
+body[data-intensity="med"] .wx-scene__cloud:nth-child(n+6) { opacity: 0; }
+
+/* ----------------------------------------------------------------- rain */
+
+.wx-scene__rain {
+  opacity: 0;
+  transition: opacity .6s ease;
+}
+.wx-scene__drop {
+  position: absolute;
+  top: 0;
+  left: var(--x);
+  width: 1.5px;
+  height: var(--h);
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(214, 234, 255, 0) 0%, rgba(200, 226, 255, .9) 100%);
+  opacity: 0;
+  animation: wx-scene-rain-fall var(--d) linear var(--delay) infinite;
+}
+/* The wind shear in the end keyframe is what makes it read as rain, not bars. */
+@keyframes wx-scene-rain-fall {
+  0%   { transform: translate3d(0, -14vh, 0); opacity: 0; }
+  10%  { opacity: var(--o); }
+  86%  { opacity: var(--o); }
+  100% { transform: translate3d(-3.5vw, 116vh, 0); opacity: 0; }
+}
+
+/* ----------------------------------------------------------------- snow */
+
+.wx-scene__snow {
+  opacity: 0;
+  transition: opacity .8s ease;
+}
+.wx-scene__flake {
+  position: absolute;
+  top: 0;
+  left: var(--x);
+  width: var(--s);
+  height: var(--s);
+  border-radius: 50%;
+  background: radial-gradient(circle, #ffffff 58%, rgba(255, 255, 255, .68) 100%);
+  opacity: 0;
+  animation: wx-scene-snow-fall var(--d) linear var(--delay) infinite;
+}
+@keyframes wx-scene-snow-fall {
+  0%   { transform: translate3d(0, -10vh, 0); opacity: 0; }
+  12%  { opacity: var(--o); }
+  88%  { opacity: var(--o); }
+  50%  { transform: translate3d(var(--sway), 52vh, 0); }
+  100% { transform: translate3d(calc(var(--sway) * -0.7), 118vh, 0); opacity: 0; }
+}
+
+/* ------------------------------------------------------------------ fog */
+
+.wx-scene__fog {
+  opacity: 0;
+  transition: opacity 1.2s ease;
+}
+.wx-scene__band {
+  position: absolute;
+  left: -22%;
+  right: -22%;
+  top: var(--y);
+  height: var(--h);
+  background: linear-gradient(180deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, .5) 46%,
+    rgba(255, 255, 255, 0) 100%);
+  opacity: var(--o);
+  filter: blur(30px);
+  animation: wx-scene-fog-drift var(--d) ease-in-out var(--delay) infinite;
+}
+body[data-time="night"] .wx-scene__band {
+  background: linear-gradient(180deg,
+    rgba(178, 194, 224, 0) 0%,
+    rgba(178, 194, 224, .42) 48%,
+    rgba(178, 194, 224, 0) 100%);
+}
+@keyframes wx-scene-fog-drift {
+  0%, 100% { transform: translate3d(-3.5%, 0, 0); }
+  50%      { transform: translate3d(3.5%, 0, 0); }
+}
+
+/* ------------------------------------------------------------ lightning */
+/* Two short pulses roughly once every 21s, deliberately separated so the
+   effect reads as distant sheet lightning and never as a strobe. */
+
+.wx-scene__flash {
+  display: none;
+  background: radial-gradient(130% 86% at 62% -6%,
+    rgba(255, 255, 255, .92) 0%,
+    rgba(214, 228, 255, .4) 38%,
+    rgba(214, 228, 255, 0) 70%);
+  opacity: 0;
+  animation: wx-scene-flash 21s linear infinite;
+}
+.wx-scene__flash--alt {
+  animation-duration: 29s;
+  animation-delay: -11s;
+}
+body[data-scene="thunder"] .wx-scene__flash { display: block; }
+
+@keyframes wx-scene-flash {
+  0%, 90.5%, 100% { opacity: 0; }
+  91.2% { opacity: .46; }
+  91.8% { opacity: .05; }
+  92.4% { opacity: .38; }
+  93.2% { opacity: 0; }
+}
+
+/* --------------------------------------------------------------- scrim */
+/* Contrast wash. Keeps body text legible over any scene without dimming the
+   atmosphere enough to lose its mood. */
+
+.wx-scene__scrim {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, .20) 0%, rgba(255, 255, 255, 0) 30%),
+    linear-gradient(0deg, rgba(255, 255, 255, .26) 0%, rgba(255, 255, 255, 0) 44%);
+}
+body[data-time="night"] .wx-scene__scrim {
+  background:
+    linear-gradient(180deg, rgba(7, 13, 30, .38) 0%, rgba(7, 13, 30, 0) 34%),
+    linear-gradient(0deg, rgba(7, 13, 30, .46) 0%, rgba(7, 13, 30, 0) 46%);
+}
+
+/* ======================================================== scene: reveal */
+
+/* CLEAR / SUNNY */
+body[data-scene="clear"][data-time="day"] .wx-scene__sun { opacity: .92; }
+body[data-scene="clear"][data-time="day"] .wx-scene__rays { opacity: .8; }
+body[data-scene="clear"][data-time="day"] .wx-scene__motes { opacity: .9; }
+body[data-scene="clear"][data-time="day"] .wx-scene__clouds { opacity: .5; }
+
+/* CLEAR / NIGHT — the same skies, moon and stars instead of sun and motes */
+body[data-scene="clear"][data-time="night"] .wx-scene__moon { opacity: .88; }
+body[data-scene="clear"][data-time="night"] .wx-scene__stars { opacity: .92; }
+body[data-scene="clear"][data-time="night"] .wx-scene__clouds { opacity: .4; }
+
+/* PARTLY CLOUDY */
+body[data-scene="partly"] .wx-scene__clouds { opacity: .92; }
+body[data-scene="partly"][data-time="day"] .wx-scene__sun { opacity: .66; }
+body[data-scene="partly"][data-time="day"] .wx-scene__rays { opacity: .48; }
+body[data-scene="partly"][data-time="night"] .wx-scene__moon { opacity: .6; }
+body[data-scene="partly"][data-time="night"] .wx-scene__stars { opacity: .6; }
+
+/* CLOUDY / OVERCAST */
+body[data-scene="clouds"] .wx-scene__clouds { opacity: 1; }
+body[data-scene="clouds"][data-time="night"] .wx-scene__clouds { opacity: .95; }
+
+/* RAIN */
+body[data-scene="rain"] .wx-scene__clouds { opacity: .9; }
+body[data-scene="rain"] .wx-scene__rain { opacity: .82; }
+body[data-scene="rain"][data-time="night"] .wx-scene__rain { opacity: .9; }
+
+/* THUNDERSTORM */
+body[data-scene="thunder"] .wx-scene__clouds { opacity: .95; }
+body[data-scene="thunder"] .wx-scene__rain { opacity: .9; }
+body[data-scene="thunder"] .wx-scene__scrim {
+  background:
+    linear-gradient(180deg, rgba(10, 8, 24, .3) 0%, rgba(10, 8, 24, 0) 32%),
+    linear-gradient(0deg, rgba(10, 8, 24, .34) 0%, rgba(10, 8, 24, 0) 44%);
+}
+
+/* SNOW */
+body[data-scene="snow"] .wx-scene__snow { opacity: 1; }
+body[data-scene="snow"] .wx-scene__clouds { opacity: .62; }
+
+/* FOG */
+body[data-scene="fog"] .wx-scene__fog { opacity: .95; }
+body[data-scene="fog"] .wx-scene__clouds { opacity: .28; }
+
+/* Resume motion only for the layers the current scene actually uses. */
+body[data-scene="clear"] .wx-scene__sun,
+body[data-scene="clear"] .wx-scene__moon,
+body[data-scene="clear"] .wx-scene__rays,
+body[data-scene="clear"] .wx-scene__stars,
+body[data-scene="clear"] .wx-scene__motes,
+body[data-scene="clear"] .wx-scene__clouds > *,
+body[data-scene="partly"] .wx-scene__sun,
+body[data-scene="partly"] .wx-scene__moon,
+body[data-scene="partly"] .wx-scene__rays,
+body[data-scene="partly"] .wx-scene__stars,
+body[data-scene="partly"] .wx-scene__motes,
+body[data-scene="partly"] .wx-scene__clouds > *,
+body[data-scene="clouds"] .wx-scene__clouds > *,
+body[data-scene="rain"] .wx-scene__clouds > *,
+body[data-scene="rain"] .wx-scene__rain > *,
+body[data-scene="thunder"] .wx-scene__clouds > *,
+body[data-scene="thunder"] .wx-scene__rain > *,
+body[data-scene="thunder"] .wx-scene__flash,
+body[data-scene="snow"] .wx-scene__clouds > *,
+body[data-scene="snow"] .wx-scene__snow > *,
+body[data-scene="fog"] .wx-scene__clouds > *,
+body[data-scene="fog"] .wx-scene__fog > * {
+  animation-play-state: running;
+}
+
+/* ====================================================== intensity: scale */
+/* Density and speed rise with the severity of the weather code, so drizzle
+   never looks like a downpour. */
+
+body[data-intensity="low"] .wx-scene__drop:nth-child(n+25),
+body[data-intensity="med"] .wx-scene__drop:nth-child(n+41),
+body[data-intensity="high"] .wx-scene__drop:nth-child(n+55),
+body[data-intensity="low"] .wx-scene__flake:nth-child(n+17),
+body[data-intensity="med"] .wx-scene__flake:nth-child(n+27),
+body[data-intensity="high"] .wx-scene__flake:nth-child(n+35) {
+  display: none;
+}
+
+body[data-intensity="max"] .wx-scene__drop { animation-duration: calc(var(--d) * .76); }
+body[data-intensity="high"] .wx-scene__drop { animation-duration: calc(var(--d) * .88); }
+body[data-intensity="low"] .wx-scene__drop { animation-duration: calc(var(--d) * 1.3); }
+
+body[data-intensity="low"] .wx-scene__flake { animation-duration: calc(var(--d) * 1.25); }
+body[data-intensity="high"] .wx-scene__flake,
+body[data-intensity="max"] .wx-scene__flake { animation-duration: calc(var(--d) * .82); }
+
+/* ==================================================== quality: budgets */
+/* data-quality="reduced" is set by js/scene.js on small screens, low core
+   counts, low device memory and save-data connections. It thins the particle
+   layers and drops the expensive blurs instead of removing the atmosphere. */
+
+body[data-quality="reduced"] .wx-scene__star:nth-child(n+18),
+body[data-quality="reduced"] .wx-scene__mote:nth-child(n+9),
+body[data-quality="reduced"] .wx-scene__drop:nth-child(n+25),
+body[data-quality="reduced"] .wx-scene__flake:nth-child(n+17),
+body[data-quality="reduced"] .wx-scene__cloud:nth-child(n+6),
+body[data-quality="reduced"] .wx-scene__band:nth-child(n+3) {
+  display: none;
+}
+
+body[data-quality="reduced"] .wx-scene__cloud,
+body[data-quality="reduced"] .wx-scene__band {
+  filter: none;
+}
+body[data-quality="reduced"] .wx-scene__rays {
+  animation-play-state: paused;
+}
+body[data-quality="reduced"] .wx-scene__flash {
+  animation-duration: 34s;
+}
+
+/* =============================================== reduced motion: static */
+/* base.css caps every animation-duration at .01ms under prefers-reduced-motion,
+   which would leave the particle layers strobing at 1% of their cycle. Hide
+   them instead and keep only the calm gradient, sun/moon and cloud shapes. */
+
+@media (prefers-reduced-motion: reduce) {
+  .wx-scene__star,
+  .wx-scene__mote,
+  .wx-scene__drop,
+  .wx-scene__flake,
+  .wx-scene__band,
+  .wx-scene__rays,
+  .wx-scene__flash {
+    display: none !important;
+  }
+
+  .wx-scene *,
+  .wx-scene__sun,
+  .wx-scene__moon,
+  .wx-scene__cloud {
+    animation: none !important;
+  }
+
+  /* Cloud shapes stay as static depth, parked mid-viewport. */
+  .wx-scene__cloud {
+    transform: translate3d(0, 0, 0);
+    opacity: var(--o);
+  }
+}

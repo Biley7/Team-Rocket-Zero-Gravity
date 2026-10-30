@@ -17,21 +17,25 @@
   border: 1px solid var(--wx-border);
   border-radius: var(--wx-radius-lg);
   box-shadow: var(--wx-shadow);
-  transition: border-color .2s ease, box-shadow .2s ease;
+  transition: border-color var(--wx-anim-base) var(--wx-ease),
+              box-shadow var(--wx-anim-base) var(--wx-ease);
 }
+.wx-search__field:hover { border-color: var(--wx-border-strong); }
 
 .wx-search__field:focus-within {
   border-color: var(--wx-accent);
-  box-shadow: 0 0 0 4px var(--wx-accent-soft), var(--wx-shadow);
+  box-shadow: var(--wx-focus-ring), var(--wx-shadow);
 }
 
 .wx-search__icon {
   display: flex;
   flex: 0 0 auto;
-  width: 20px;
-  height: 20px;
+  width: var(--wx-icon-md);
+  height: var(--wx-icon-md);
   color: var(--wx-muted);
+  transition: color var(--wx-anim-base) var(--wx-ease);
 }
+.wx-search__field:focus-within .wx-search__icon { color: var(--wx-accent); }
 .wx-search__icon svg { width: 100%; height: 100%; }
 
 .wx-search__input {
@@ -48,21 +52,31 @@
 .wx-search__input::placeholder { color: var(--wx-muted); }
 
 .wx-search__clear {
+  position: relative;
   flex: 0 0 auto;
   display: grid;
   place-items: center;
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   padding: 0;
   border: 0;
   border-radius: 50%;
   background: transparent;
   color: var(--wx-muted);
   cursor: pointer;
-  transition: background .15s ease, color .15s ease;
+  transition: background var(--wx-anim-fast) var(--wx-ease),
+              color var(--wx-anim-fast) var(--wx-ease);
 }
-.wx-search__clear svg { width: 16px; height: 16px; }
+/* Layout stays compact; the hit area is padded out to the 44px tap target. */
+.wx-search__clear::after {
+  content: "";
+  position: absolute;
+  inset: calc((32px - var(--wx-tap)) / 2);
+  border-radius: 50%;
+}
+.wx-search__clear svg { width: var(--wx-icon-sm); height: var(--wx-icon-sm); }
 .wx-search__clear:hover { background: var(--wx-accent-soft); color: var(--wx-text); }
+.wx-search__clear:active { transform: scale(.94); }
 .wx-search__clear:focus-visible { outline: 2px solid var(--wx-accent); outline-offset: 2px; }
 
 .wx-search__spinner {
@@ -85,16 +99,19 @@
   margin: 0;
   padding: var(--wx-space-2);
   list-style: none;
-  max-height: 22rem;
+  max-height: min(22rem, 60vh);
   overflow-y: auto;
+  overscroll-behavior: contain;
   background: var(--wx-surface-solid);
   border: 1px solid var(--wx-border);
   border-radius: var(--wx-radius);
-  box-shadow: 0 18px 44px rgba(13, 27, 42, .22);
+  box-shadow: var(--wx-shadow-lift);
   opacity: 0;
   visibility: hidden;
   transform: translateY(-6px);
-  transition: opacity .18s ease, transform .18s ease, visibility .18s;
+  transition: opacity var(--wx-anim-base) var(--wx-ease),
+              transform var(--wx-anim-base) var(--wx-ease),
+              visibility var(--wx-anim-base);
 }
 .wx-search__results.is-open { opacity: 1; visibility: visible; transform: none; }
 
@@ -102,19 +119,24 @@
   display: flex;
   align-items: center;
   gap: var(--wx-space-3);
+  min-height: var(--wx-tap);
   padding: var(--wx-space-3);
   border-radius: var(--wx-radius-sm);
   cursor: pointer;
-  transition: background .12s ease;
+  transition: background var(--wx-anim-fast) var(--wx-ease);
 }
+.wx-search__option:hover,
 .wx-search__option.is-active { background: var(--wx-accent-soft); }
 
 .wx-search__flag { flex: 0 0 auto; font-size: 1.2rem; line-height: 1; }
 
 .wx-search__body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
-.wx-search__name { font-weight: 600; }
-.wx-search__meta { color: var(--wx-muted); font-size: .82rem; }
+.wx-search__name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wx-search__meta { color: var(--wx-muted); font-size: .82rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wx-search__coords { flex: 0 0 auto; color: var(--wx-muted); font-size: .72rem; font-variant-numeric: tabular-nums; }
+@media (max-width: 520px) {
+  .wx-search__coords { display: none; }
+}
 
 .wx-search__empty {
   padding: var(--wx-space-4);
@@ -127,7 +149,7 @@
   margin: var(--wx-space-2) 0 0;
   padding: var(--wx-space-2) var(--wx-space-3);
   border-radius: var(--wx-radius-sm);
-  background: rgba(192, 57, 43, .12);
+  background: var(--wx-sev-severe-soft);
   color: var(--wx-sev-severe);
   font-size: .85rem;
 }
@@ -142,120 +164,255 @@
 
 /* --------------------------------------------------------- current weather */
 
-.wx-current { position: relative; }
-.wx-current.is-loading { opacity: .72; }
+.wx-current {
+  position: relative;
+  overflow: hidden;
+  padding: clamp(1.25rem, 3vw, 2.1rem);
+  border-radius: var(--wx-radius-lg);
+  background: linear-gradient(160deg, rgba(255, 255, 255, .46), rgba(255, 255, 255, .16));
+  transition: opacity var(--wx-anim-slow) var(--wx-ease);
+}
+body[data-time="night"] .wx-current {
+  background: linear-gradient(160deg, rgba(22, 31, 52, .64), rgba(22, 31, 52, .30));
+}
+.wx-current.is-loading { opacity: .78; }
+
+/* The atmosphere is not drawn here. js/scene.js owns one shared .wx-scene
+   layer stack behind the whole dashboard; the card stays translucent so that
+   weather shows through it and text keeps its contrast. */
+
+.wx-current__content { position: relative; }
 
 .wx-current__head {
   display: flex;
-  justify-content: space-between;
   align-items: flex-start;
-  gap: var(--wx-space-3);
+  justify-content: space-between;
+  gap: var(--wx-space-4);
 }
-.wx-current__city { margin: 0; font-size: 1.35rem; letter-spacing: -.01em; }
-.wx-current__region { margin: var(--wx-space-1) 0 0; color: var(--wx-muted); font-size: .88rem; }
-.wx-current__updated { margin: 0; color: var(--wx-muted); font-size: .75rem; white-space: nowrap; }
+.wx-current__place { min-width: 0; }
+.wx-current__flag { margin: 0; font-size: 1.45rem; line-height: 1; }
+.wx-current__flag[hidden] { display: none; }
+.wx-current__city {
+  margin: var(--wx-space-1) 0 0;
+  font-size: clamp(1.4rem, 2.6vw, 1.85rem);
+  font-weight: 600;
+  letter-spacing: -.02em;
+  overflow-wrap: break-word;
+}
+.wx-current__region { margin: var(--wx-space-1) 0 0; color: var(--wx-muted); font-size: .92rem; overflow-wrap: break-word; }
 
-.wx-current__body {
+.wx-current__clock { text-align: right; white-space: nowrap; }
+.wx-current__clock-label {
+  margin: 0;
+  color: var(--wx-muted);
+  font-size: .66rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+.wx-current__time {
+  margin: 2px 0 0;
+  font-size: 1.35rem;
+  font-weight: 600;
+  letter-spacing: -.02em;
+  font-variant-numeric: tabular-nums;
+}
+.wx-current__updated { margin: 2px 0 0; color: var(--wx-muted); font-size: .72rem; }
+
+/* Hero reading — the temperature is the strongest element on the page */
+.wx-current__hero {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: var(--wx-space-4);
-  margin: var(--wx-space-4) 0;
+  margin: var(--wx-space-5) 0 var(--wx-space-4);
 }
-.wx-current__icon { flex: 0 0 auto; width: 88px; height: 88px; }
-.wx-current__temp-block { display: flex; flex-direction: column; gap: var(--wx-space-1); }
-.wx-current__temp { margin: 0; font-size: 3rem; font-weight: 700; line-height: 1; letter-spacing: -.03em; }
-.wx-current__desc { margin: 0; font-size: 1rem; }
-.wx-current__feels { margin: 0; color: var(--wx-muted); font-size: .85rem; }
-
-.wx-current__meta {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+.wx-current__reading { min-width: 0; }
+.wx-current__temp {
+  margin: 0;
+  font-size: clamp(4rem, 14vw, 6.75rem);
+  font-weight: 200;
+  line-height: .9;
+  letter-spacing: -.055em;
+  font-variant-numeric: tabular-nums;
+}
+.wx-current__desc { margin: var(--wx-space-3) 0 0; font-size: 1.05rem; font-weight: 600; }
+.wx-current__range {
+  display: flex;
   gap: var(--wx-space-3);
+  margin: var(--wx-space-2) 0 0;
+  color: var(--wx-muted);
+  font-size: .95rem;
+  font-variant-numeric: tabular-nums;
+}
+.wx-current__range-hi { color: var(--wx-text); font-weight: 600; }
+.wx-current__feels { margin: var(--wx-space-2) 0 0; color: var(--wx-muted); font-size: .88rem; }
+
+.wx-current__icon {
+  flex: 0 0 auto;
+  width: clamp(84px, 17vw, 132px);
+  height: clamp(84px, 17vw, 132px);
+  filter: drop-shadow(0 14px 26px rgba(13, 27, 42, .16));
+  animation: wx-icon-float 7s ease-in-out infinite;
+}
+@keyframes wx-icon-float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-8px); }
+}
+
+.wx-current__metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(122px, 1fr));
+  gap: var(--wx-space-3) var(--wx-space-4);
   margin: 0;
   padding-top: var(--wx-space-4);
   border-top: 1px solid var(--wx-border);
 }
-.wx-current__meta-item { min-width: 0; }
-.wx-current__meta-item dt { color: var(--wx-muted); font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; }
-.wx-current__meta-item dd { margin: var(--wx-space-1) 0 0; font-size: .95rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.wx-current__metric { min-width: 0; }
+.wx-current__metric dt {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  color: var(--wx-muted);
+  font-size: .68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+}
+.wx-current__metric-icon { display: inline-flex; width: 14px; height: 14px; opacity: .85; }
+.wx-current__metric-icon svg { width: 100%; height: 100%; }
+.wx-current__metric dd {
+  margin: var(--wx-space-1) 0 0;
+  font-size: 1.08rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.wx-current__winddir { display: flex; align-items: center; gap: .4rem; }
+.wx-current__arrow {
+  display: inline-flex;
+  width: 15px;
+  height: 15px;
+  color: var(--wx-accent);
+  transition: transform var(--wx-anim-slow) var(--wx-ease);
+}
+.wx-current__arrow svg { width: 100%; height: 100%; }
 
 .wx-current__message { margin: var(--wx-space-3) 0 0; font-size: .82rem; }
 .wx-current__message--info { color: var(--wx-muted); }
 .wx-current__message--error { color: var(--wx-sev-severe); }
 
-/* ------------------------------------------------------------ 7-day cards */
+/* ------------------------------------------------------------ 7-day rows */
 
 .wx-forecast__head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--wx-space-2); }
 .wx-forecast__title { margin: 0; font-size: 1.05rem; }
 .wx-forecast__summary { margin: 0; color: var(--wx-muted); font-size: .78rem; }
 
 .wx-forecast__list {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
-  gap: var(--wx-space-3);
   margin: var(--wx-space-4) 0 0;
   padding: 0;
   list-style: none;
 }
 
-.wx-forecast-card {
+.wx-forecast-row {
+  display: grid;
+  grid-template-columns: 4.75rem 2.25rem minmax(0, 1fr) minmax(10rem, 15rem);
+  align-items: center;
+  gap: var(--wx-space-3);
+  min-height: var(--wx-tap);
   padding: var(--wx-space-3);
-  border: 1px solid var(--wx-border);
   border-radius: var(--wx-radius);
-  background: rgba(255, 255, 255, .35);
-  transition: transform .18s ease, box-shadow .18s ease;
+  border-top: 1px solid var(--wx-border);
+  transition: background var(--wx-anim-fast) var(--wx-ease);
 }
-body[data-time="night"] .wx-forecast-card { background: rgba(255, 255, 255, .05); }
-.wx-forecast-card:hover { transform: translateY(-2px); box-shadow: var(--wx-shadow); }
+.wx-forecast-row:first-child { border-top: 0; }
+.wx-forecast-row.is-today { background: var(--wx-accent-soft); }
+.wx-forecast-row:hover { background: var(--wx-hover); }
+.wx-forecast-row.is-today:hover { background: var(--wx-accent-soft); }
 
-.wx-forecast-card__head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--wx-space-2); }
-.wx-forecast-card__day { margin: 0; font-weight: 600; font-size: .9rem; }
-.wx-forecast-card__date { margin: 0; color: var(--wx-muted); font-size: .72rem; }
+.wx-forecast-row__day { display: flex; flex-direction: column; min-width: 0; }
+.wx-forecast-row__name { font-weight: 600; font-size: .95rem; }
+.wx-forecast-row.is-today .wx-forecast-row__name { color: var(--wx-accent); }
+.wx-forecast-row__date { color: var(--wx-muted); font-size: .72rem; }
 
-.wx-forecast-card__icon { width: 34px; height: 34px; margin: var(--wx-space-3) 0 var(--wx-space-2); }
+.wx-forecast-row__icon { width: var(--wx-icon-lg); height: var(--wx-icon-lg); }
 
-.wx-forecast-card__desc {
-  margin: 0;
-  font-size: .78rem;
-  color: var(--wx-muted);
-  min-height: 2.4em;
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+.wx-forecast-row__cond { display: flex; align-items: center; gap: var(--wx-space-2); min-width: 0; }
+.wx-forecast-row__desc { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .88rem; }
+.wx-forecast-row__precip {
+  flex: 0 0 auto;
+  padding: 1px 7px;
+  border-radius: var(--wx-radius-pill);
+  background: rgba(61, 125, 214, .14);
+  color: #2f6fed;
+  font-size: .72rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
+body[data-time="night"] .wx-forecast-row__precip { background: rgba(120, 165, 255, .2); color: #bcd4ff; }
 
-.wx-forecast-card__temps { display: flex; align-items: baseline; gap: var(--wx-space-2); margin: var(--wx-space-2) 0 var(--wx-space-1); }
-.wx-forecast-card__max { font-size: 1.15rem; font-weight: 700; }
-.wx-forecast-card__min { font-size: .9rem; color: var(--wx-muted); }
+.wx-forecast-row__scale {
+  display: grid;
+  grid-template-columns: 2.6rem 1fr 2.6rem;
+  align-items: center;
+  gap: var(--wx-space-2);
+}
+.wx-forecast-row__min { text-align: right; color: var(--wx-muted); font-size: .92rem; font-variant-numeric: tabular-nums; }
+.wx-forecast-row__max { text-align: right; font-size: 1.02rem; font-weight: 700; font-variant-numeric: tabular-nums; }
 
-.wx-forecast-card__bar {
+.wx-forecast-row__bar {
   position: relative;
   height: 5px;
-  border-radius: 999px;
+  border-radius: var(--wx-radius-pill);
   background: var(--wx-border);
   overflow: hidden;
 }
-.wx-forecast-card__fill {
+.wx-forecast-row__fill {
   position: absolute;
   top: 0;
   bottom: 0;
-  border-radius: 999px;
+  border-radius: var(--wx-radius-pill);
   background: linear-gradient(90deg, #5aa9e6, #f0a020 55%, #e0642e);
-  transition: left .4s ease, width .4s ease;
+  transition: left var(--wx-anim-slow) var(--wx-ease), width var(--wx-anim-slow) var(--wx-ease);
 }
 
-.wx-forecast-card__meta { display: flex; flex-wrap: wrap; gap: var(--wx-space-2); margin: var(--wx-space-2) 0 0; font-size: .72rem; color: var(--wx-muted); }
+/* Each day colours its own icon, independent of the current theme */
+.wx-forecast-row[data-theme="clear"]   .wx-icon { color: #f0a020; }
+.wx-forecast-row[data-theme="clouds"]  .wx-icon { color: #78899f; }
+.wx-forecast-row[data-theme="rain"]    .wx-icon { color: #3d7dd6; }
+.wx-forecast-row[data-theme="thunder"] .wx-icon { color: #7c5cd6; }
+.wx-forecast-row[data-theme="snow"]    .wx-icon { color: #62a9dd; }
+.wx-forecast-row[data-theme="fog"]     .wx-icon { color: #8b96a3; }
 
-.wx-forecast-card[data-theme="clear"]   { --wx-icon-color: #f0a020; }
-.wx-forecast-card[data-theme="clouds"]  { --wx-icon-color: #78899f; }
-.wx-forecast-card[data-theme="rain"]    { --wx-icon-color: #3d7dd6; }
-.wx-forecast-card[data-theme="thunder"] { --wx-icon-color: #7c5cd6; }
-.wx-forecast-card[data-theme="snow"]    { --wx-icon-color: #62a9dd; }
-.wx-forecast-card[data-theme="fog"]     { --wx-icon-color: #8b96a3; }
+/* ------------------------------------------------------------ responsive */
 
+/* Phone: the 7-day rows reflow to two lines so the temperature scale stays
+   readable instead of being squeezed into a narrow side column. */
+@media (max-width: 620px) {
+  .wx-forecast-row {
+    grid-template-columns: 4.25rem 2rem minmax(0, 1fr);
+    grid-template-areas:
+      "day   icon cond"
+      "scale scale scale";
+    row-gap: var(--wx-space-2);
+    column-gap: var(--wx-space-2);
+  }
+  .wx-forecast-row__day   { grid-area: day; }
+  .wx-forecast-row__icon  { grid-area: icon; }
+  .wx-forecast-row__cond  { grid-area: cond; }
+  .wx-forecast-row__scale {
+    grid-area: scale;
+    grid-template-columns: 2.2rem 1fr 2.2rem;
+  }
+}
+
+/* Small phone: keep the hero prominent without letting the metrics shrink to
+   unreadable columns, and give the search field the full width it needs. */
 @media (max-width: 420px) {
-  .wx-current__icon { width: 64px; height: 64px; }
-  .wx-current__temp { font-size: 2.4rem; }
-  .wx-forecast__list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .wx-current__hero { gap: var(--wx-space-3); }
+  .wx-current__temp { font-size: 3.6rem; }
+  .wx-current__icon { width: 72px; height: 72px; }
+  .wx-current__time { font-size: 1.15rem; }
+  .wx-current__metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .wx-search__field { padding: var(--wx-space-1) var(--wx-space-2); }
 }

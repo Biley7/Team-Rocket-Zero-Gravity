@@ -3,6 +3,10 @@
 // Regions owned: #city-search, #current-weather, #forecast-7day.
 // Never write into #alerts, #hourly-chart, #favourites, #units-toggle or
 // #status-banner — those belong to Pawan and Dighal.
+//
+// This file renders ONLY from WX.state.weather (the shared normalized contract
+// in ARCHITECTURE.md 4.1). It never keeps its own copy of the data, so every
+// value repaints when the selected city, the units or the cached reading change.
 (function (WX) {
   "use strict";
 
@@ -10,6 +14,7 @@
   var DEBOUNCE_MS = 280;
   var MIN_QUERY = 2;
   var SUGGESTION_LIMIT = 6;
+  var CLOCK_TICK_MS = 30000;
 
   var els = {};
   var suggestions = [];
@@ -30,6 +35,27 @@
   var ICON_CLEAR =
     '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">' +
     '<path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+
+  // Small compass needle for the wind-direction metric (points where wind is from).
+  var ARROW_SVG =
+    '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">' +
+    '<path d="M12 2.5l5 17-5-3.4-5 3.4z" fill="currentColor"/></svg>';
+
+  // Compact metric glyphs — keeps the hero readable without emoji.
+  var METRIC_ICONS = {
+    humidity:
+      '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5c3.2 4 5.5 7 5.5 10a5.5 5.5 0 1 1-11 0c0-3 2.3-6 5.5-10z" fill="none" stroke="currentColor" stroke-width="1.7"/></svg>',
+    wind:
+      '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8h11a3 3 0 1 0-3-3M3 12h15a3 3 0 1 1-3 3M3 16h8" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>',
+    rain:
+      '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 15a4 4 0 0 1 .6-8 5 5 0 0 1 9.5 1.2A3.6 3.6 0 0 1 17 15H7z" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M9 18l-1 2.5M13 18l-1 2.5M17 18l-1 2.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>',
+    uv:
+      '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.2 5.2l1.6 1.6M17.2 17.2l1.6 1.6M18.8 5.2l-1.6 1.6M6.8 17.2l-1.6 1.6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>',
+    sun:
+      '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 16h19M7.5 16a4.5 4.5 0 0 1 9 0M12 4.5v3M18 9.2l-1.8 1.3M6 9.2l1.8 1.3" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>',
+    compass:
+      '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M12 7l2.4 7.2L12 13l-2.4 1.2z" fill="currentColor"/></svg>'
+  };
 
   // ---------------------------------------------------------------- helpers
 
@@ -53,6 +79,16 @@
   function placeLabel(city) {
     if (!city) return "";
     return [city.region, city.country].filter(Boolean).join(", ");
+  }
+
+  // UV categories used by the hero metric.
+  function uvLabel(value) {
+    if (!isNum(value)) return "";
+    if (value < 3) return "Low";
+    if (value < 6) return "Moderate";
+    if (value < 8) return "High";
+    if (value < 11) return "Very high";
+    return "Extreme";
   }
 
   // Turns an API error code into something worth showing a human.
@@ -338,44 +374,70 @@
 
   // ------------------------------------------------- region: current weather
 
+  // The atmospheric backdrop is shared, not per-card: js/scene.js owns the
+  // single .wx-scene layer stack and reveals its layers from <body data-scene>.
+  // The hero shows the condition through #current-icon instead.
+
+  function metricHtml(label, iconKey, id, valueClass) {
+    return '<div class="wx-current__metric">' +
+      '<dt><span class="wx-current__metric-icon">' + (METRIC_ICONS[iconKey] || "") + '</span>' + label + '</dt>' +
+      '<dd id="' + id + '"' + (valueClass ? ' class="' + valueClass + '"' : "") + '>—</dd>' +
+      '</div>';
+  }
+
   function buildCurrent(mount) {
     mount.innerHTML =
       '<article class="wx-card wx-current">' +
-        '<header class="wx-current__head">' +
-          '<div class="wx-current__place">' +
-            '<h2 id="current-city" class="wx-current__city">No city selected</h2>' +
-            '<p id="current-region" class="wx-current__region">Search above to load a forecast.</p>' +
+        '<div class="wx-current__content">' +
+          '<header class="wx-current__head">' +
+            '<div class="wx-current__place">' +
+              '<p id="current-flag" class="wx-current__flag" hidden></p>' +
+              '<h2 id="current-city" class="wx-current__city">No city selected</h2>' +
+              '<p id="current-region" class="wx-current__region">Search above to load a forecast.</p>' +
+            '</div>' +
+            '<div class="wx-current__clock">' +
+              '<p class="wx-current__clock-label">Local time</p>' +
+              '<p id="current-localtime" class="wx-current__time">—</p>' +
+              '<p id="current-updated" class="wx-current__updated"></p>' +
+            '</div>' +
+          '</header>' +
+          '<div class="wx-current__hero">' +
+            '<div class="wx-current__reading">' +
+              '<p id="current-temp" class="wx-current__temp">—</p>' +
+              '<p id="current-desc" class="wx-current__desc">—</p>' +
+              '<p id="current-range" class="wx-current__range"></p>' +
+              '<p id="current-feels" class="wx-current__feels"></p>' +
+            '</div>' +
+            '<div id="current-icon" class="wx-current__icon" aria-hidden="true"></div>' +
           '</div>' +
-          '<p id="current-updated" class="wx-current__updated"></p>' +
-        '</header>' +
-        '<div id="current-body" class="wx-current__body">' +
-          '<div id="current-icon" class="wx-current__icon" aria-hidden="true"></div>' +
-          '<div class="wx-current__temp-block">' +
-            '<p id="current-temp" class="wx-current__temp">—</p>' +
-            '<p id="current-desc" class="wx-current__desc">—</p>' +
-            '<p id="current-feels" class="wx-current__feels">—</p>' +
-          '</div>' +
+          '<dl class="wx-current__metrics">' +
+            metricHtml("Humidity", "humidity", "current-humidity") +
+            metricHtml("Wind", "wind", "current-wind") +
+            metricHtml("Wind direction", "compass", "current-winddir", "wx-current__winddir") +
+            metricHtml("Precipitation", "rain", "current-precip") +
+            metricHtml("UV index", "uv", "current-uv") +
+            metricHtml("Sunrise · Sunset", "sun", "current-sun") +
+          '</dl>' +
+          '<p id="current-message" class="wx-current__message is-hidden"></p>' +
         '</div>' +
-        '<dl class="wx-current__meta">' +
-          '<div class="wx-current__meta-item"><dt>Humidity</dt><dd id="current-humidity">—</dd></div>' +
-          '<div class="wx-current__meta-item"><dt>Wind</dt><dd id="current-wind">—</dd></div>' +
-          '<div class="wx-current__meta-item"><dt>Rain now</dt><dd id="current-precip">—</dd></div>' +
-          '<div class="wx-current__meta-item"><dt>Local time</dt><dd id="current-localtime">—</dd></div>' +
-        '</dl>' +
-        '<p id="current-message" class="wx-current__message is-hidden"></p>' +
       '</article>';
 
     els.current = $(".wx-current");
     els.city = $("#current-city");
+    els.flag = $("#current-flag");
     els.region = $("#current-region");
     els.updated = $("#current-updated");
     els.icon = $("#current-icon");
     els.temp = $("#current-temp");
     els.desc = $("#current-desc");
+    els.range = $("#current-range");
     els.feels = $("#current-feels");
     els.humidity = $("#current-humidity");
     els.wind = $("#current-wind");
+    els.winddir = $("#current-winddir");
     els.precip = $("#current-precip");
+    els.uv = $("#current-uv");
+    els.sun = $("#current-sun");
     els.localTime = $("#current-localtime");
     els.message = $("#current-message");
   }
@@ -388,45 +450,98 @@
     els.current.classList.toggle("is-loading", loading);
 
     if (!weather) {
-      els.city.textContent = WX.state.city ? WX.state.city.name : "No city selected";
-      els.region.textContent = WX.state.city
-        ? placeLabel(WX.state.city) || "Loading forecast…"
+      var pending = WX.state.city;
+      els.flag.hidden = true;
+      els.flag.textContent = "";
+      els.city.textContent = pending ? pending.name : "No city selected";
+      els.region.textContent = pending
+        ? placeLabel(pending) || "Loading forecast…"
         : "Search above to load a forecast.";
       els.updated.textContent = "";
       els.icon.innerHTML = WX.wmo.iconSvg("cloud");
       els.temp.textContent = "—";
       els.desc.textContent = loading ? "Loading…" : "—";
+      els.range.textContent = "";
       els.feels.textContent = "";
-      els.humidity.textContent = "—";
-      els.wind.textContent = "—";
-      els.precip.textContent = "—";
-      els.localTime.textContent = "—";
-      setMessage(WX.state.error ? WX.state.error.message : "", "error");
+      clearMetrics();
+      updateClock();
+      setMessage(
+        WX.state.error ? WX.state.error.message : (loading ? "Loading the latest conditions…" : ""),
+        WX.state.error ? "error" : "info"
+      );
       return;
     }
 
     var city = weather.city;
     var current = weather.current;
+    var today = weather.daily && weather.daily.length ? weather.daily[0] : null;
 
-    els.city.textContent = city.name;
     var flag = flagEmoji(city.countryCode);
-    if (flag) els.city.textContent = city.name + " " + flag;
+    els.flag.hidden = !flag;
+    els.flag.textContent = flag;
+    els.city.textContent = city.name;
     els.region.textContent = placeLabel(city) || city.timezone;
     els.updated.textContent = "Updated " + WX.time.relative(weather.fetchedAt);
-    els.updated.title = "Local time when this reading was fetched: " + WX.time.formatViewerTime(weather.fetchedAt);
+    els.updated.title = "Fetched at " + WX.time.formatViewerTime(weather.fetchedAt) + " (your time)";
 
     els.icon.innerHTML = WX.wmo.iconSvg(current.icon);
     els.temp.textContent = WX.units.formatTemp(current.temperature, { unit: true });
     els.desc.textContent = current.description;
-    els.feels.textContent = "Feels like " + WX.units.formatTemp(current.feelsLike);
+
+    els.range.innerHTML = today
+      ? '<span class="wx-current__range-hi">H ' + WX.units.formatTemp(today.tempMax, { unit: true }) + '</span>' +
+        '<span class="wx-current__range-lo">L ' + WX.units.formatTemp(today.tempMin, { unit: true }) + '</span>'
+      : "";
+    els.feels.textContent = isNum(current.feelsLike)
+      ? "Feels like " + WX.units.formatTemp(current.feelsLike, { unit: true })
+      : "";
+
     els.humidity.textContent = WX.units.formatPercent(current.humidity);
-
-    var direction = compassPoint(current.windDirection);
-    els.wind.textContent = WX.units.formatWind(current.windSpeed) + (direction ? " " + direction : "");
+    els.wind.textContent = WX.units.formatWind(current.windSpeed);
+    renderWindDirection(current.windDirection);
     els.precip.textContent = WX.units.formatPrecip(current.precipitation);
-    els.localTime.textContent = WX.time.offsetClock(city.utcOffsetSeconds);
+    els.uv.textContent = today && isNum(today.uvIndexMax)
+      ? Math.round(today.uvIndexMax) + " · " + uvLabel(today.uvIndexMax)
+      : "—";
+    els.sun.textContent = today && today.sunrise && today.sunset
+      ? WX.time.formatHour(today.sunrise) + " · " + WX.time.formatHour(today.sunset)
+      : "—";
 
+    updateClock();
     setMessage(loading ? "Refreshing…" : "", "info");
+  }
+
+  function renderWindDirection(degrees) {
+    var point = compassPoint(degrees);
+    if (!point) {
+      els.winddir.textContent = "—";
+      els.winddir.removeAttribute("title");
+      return;
+    }
+    els.winddir.innerHTML =
+      '<span class="wx-current__arrow" style="transform: rotate(' + Math.round(degrees) + 'deg)">' + ARROW_SVG + '</span>' +
+      '<span class="wx-current__winddir-text">' + point + '</span>';
+    els.winddir.title = "Wind from the " + point + " (" + Math.round(degrees) + "°)";
+  }
+
+  function clearMetrics() {
+    els.humidity.textContent = "—";
+    els.wind.textContent = "—";
+    els.winddir.textContent = "—";
+    els.winddir.removeAttribute("title");
+    els.precip.textContent = "—";
+    els.uv.textContent = "—";
+    els.sun.textContent = "—";
+  }
+
+  // The city's own wall clock, refreshed on a timer so it stays current
+  // without repainting the whole card.
+  function updateClock() {
+    if (!els.localTime) return;
+    var city = WX.state.weather ? WX.state.weather.city : WX.state.city;
+    els.localTime.textContent = city && isNum(city.utcOffsetSeconds)
+      ? WX.time.offsetClock(city.utcOffsetSeconds)
+      : "—";
   }
 
   function setMessage(text, tone) {
@@ -472,66 +587,71 @@
     els.forecastEmpty.classList.add("is-hidden");
     els.forecastList.innerHTML = "";
 
-    // Shared scale across the week so the range bars are comparable.
+    // One shared scale for the whole week so the bars are comparable.
     var lows = weather.daily.map(function (day) { return day.tempMin; }).filter(isNum);
     var highs = weather.daily.map(function (day) { return day.tempMax; }).filter(isNum);
     var weekLow = lows.length ? Math.min.apply(null, lows) : 0;
     var weekHigh = highs.length ? Math.max.apply(null, highs) : 1;
     var span = Math.max(1, weekHigh - weekLow);
 
-    var weekRain = weather.daily.reduce(function (sum, day) {
+    var totalRain = weather.daily.reduce(function (sum, day) {
       return sum + (isNum(day.precipitationSum) ? day.precipitationSum : 0);
     }, 0);
-    els.forecastSummary.textContent = weekRain > 0
-      ? Math.round(weekRain) + " mm of rain expected this week"
-      : "No significant rain expected this week";
+    var wetDays = weather.daily.filter(function (day) {
+      return isNum(day.precipitationSum) && day.precipitationSum >= 0.5;
+    }).length;
+
+    els.forecastSummary.textContent = wetDays === 0
+      ? "Mostly dry this week"
+      : "Rain on " + wetDays + (wetDays === 1 ? " day" : " days") + " · " + WX.units.formatPrecip(totalRain) + " total";
 
     weather.daily.forEach(function (day, index) {
-      var card = WX.el("li", "wx-forecast-card");
-      card.setAttribute("data-theme", day.theme || "clouds");
+      var row = WX.el("li", "wx-forecast-row");
+      row.setAttribute("data-theme", day.theme || "clouds");
+      if (index === 0) row.classList.add("is-today");
 
-      var header = WX.el("div", "wx-forecast-card__head");
-      header.appendChild(WX.el("p", "wx-forecast-card__day", index === 0 ? "Today" : WX.time.formatDay(day.date)));
-      header.appendChild(WX.el("p", "wx-forecast-card__date", WX.time.formatDate(day.date)));
-      card.appendChild(header);
+      var dayCell = WX.el("div", "wx-forecast-row__day");
+      dayCell.appendChild(WX.el("span", "wx-forecast-row__name", index === 0 ? "Today" : WX.time.formatDay(day.date)));
+      dayCell.appendChild(WX.el("span", "wx-forecast-row__date", WX.time.formatDate(day.date)));
+      row.appendChild(dayCell);
 
-      var icon = WX.el("div", "wx-forecast-card__icon");
+      var icon = WX.el("div", "wx-forecast-row__icon");
       icon.setAttribute("aria-hidden", "true");
       icon.innerHTML = WX.wmo.iconSvg(day.icon);
-      card.appendChild(icon);
+      row.appendChild(icon);
 
-      card.appendChild(WX.el("p", "wx-forecast-card__desc", day.description));
+      var cond = WX.el("div", "wx-forecast-row__cond");
+      cond.appendChild(WX.el("span", "wx-forecast-row__desc", day.description));
+      // Precipitation probability when the API provides it, otherwise the amount.
+      var precipText = isNum(day.precipitationProbabilityMax)
+        ? WX.units.formatPercent(day.precipitationProbabilityMax)
+        : (isNum(day.precipitationSum) && day.precipitationSum > 0 ? WX.units.formatPrecip(day.precipitationSum) : "");
+      cond.appendChild(WX.el("span", "wx-forecast-row__precip" + (precipText ? "" : " is-hidden"), precipText));
+      row.appendChild(cond);
 
-      var temps = WX.el("p", "wx-forecast-card__temps");
-      temps.appendChild(WX.el("span", "wx-forecast-card__max", WX.units.formatTemp(day.tempMax)));
-      temps.appendChild(WX.el("span", "wx-forecast-card__min", WX.units.formatTemp(day.tempMin)));
-      card.appendChild(temps);
+      var scale = WX.el("div", "wx-forecast-row__scale");
+      scale.appendChild(WX.el("span", "wx-forecast-row__min", WX.units.formatTemp(day.tempMin)));
 
-      var bar = WX.el("div", "wx-forecast-card__bar");
-      var fill = WX.el("span", "wx-forecast-card__fill");
+      var bar = WX.el("div", "wx-forecast-row__bar");
+      var fill = WX.el("span", "wx-forecast-row__fill");
       if (isNum(day.tempMin) && isNum(day.tempMax)) {
         fill.style.left = ((day.tempMin - weekLow) / span) * 100 + "%";
-        fill.style.width = Math.max(6, ((day.tempMax - day.tempMin) / span) * 100) + "%";
+        fill.style.width = Math.max(8, ((day.tempMax - day.tempMin) / span) * 100) + "%";
       }
       bar.appendChild(fill);
       bar.setAttribute("aria-hidden", "true");
-      card.appendChild(bar);
+      scale.appendChild(bar);
 
-      var meta = WX.el("p", "wx-forecast-card__meta");
-      if (isNum(day.precipitationProbabilityMax)) {
-        meta.appendChild(WX.el("span", "wx-forecast-card__rain", WX.units.formatPercent(day.precipitationProbabilityMax) + " rain"));
-      }
-      if (isNum(day.uvIndexMax)) {
-        meta.appendChild(WX.el("span", "wx-forecast-card__uv", "UV " + Math.round(day.uvIndexMax)));
-      }
-      card.appendChild(meta);
+      scale.appendChild(WX.el("span", "wx-forecast-row__max", WX.units.formatTemp(day.tempMax)));
+      row.appendChild(scale);
 
-      card.setAttribute("aria-label",
+      row.setAttribute("aria-label",
         WX.time.formatDay(day.date, { weekday: "long", day: "numeric", month: "long" }) + ": " +
         day.description + ", high " + WX.units.formatTemp(day.tempMax, { unit: true }) +
-        ", low " + WX.units.formatTemp(day.tempMin, { unit: true }));
+        ", low " + WX.units.formatTemp(day.tempMin, { unit: true }) +
+        (precipText ? ", " + precipText + " chance of precipitation" : ""));
 
-      els.forecastList.appendChild(card);
+      els.forecastList.appendChild(row);
     });
   }
 
@@ -582,17 +702,6 @@
       });
   }
 
-  function applyTheme(weather) {
-    if (!document.body) return;
-    if (!weather || !weather.current) {
-      document.body.removeAttribute("data-weather");
-      document.body.removeAttribute("data-time");
-      return;
-    }
-    document.body.setAttribute("data-weather", weather.current.theme || "clouds");
-    document.body.setAttribute("data-time", weather.current.isDay ? "day" : "night");
-  }
-
   // ------------------------------------------------------------------ init
 
   function init() {
@@ -612,13 +721,16 @@
       renderForecast();
     });
 
+    var ticker = setInterval(updateClock, CLOCK_TICK_MS);
+    // Node (tests) unrefs the timer so a stray interval cannot hang the process.
+    if (ticker && typeof ticker.unref === "function") ticker.unref();
+
     render();
     renderForecast();
   }
 
   WX.current = { init: init, render: render };
   WX.forecast = { init: function () {}, render: renderForecast };
-  WX.theme = { apply: applyTheme };
 
   WX.city = {
     select: select,

@@ -90,7 +90,8 @@ Team-Rocket-Zero-Gravity/
 ├── script.js                   ← BOOTSTRAP: load(), orchestration, init            [You]
 ├── styles/
 │   ├── base.css                ← reset, design tokens, app grid, cards, utilities  [You]
-│   ├── current.css             ← search, current conditions, 7-day, themes/anim    [You]
+│   ├── scene.css               ← shared atmosphere: .wx-scene layers + keyframes   [You]
+│   ├── current.css             ← search, current conditions, 7-day                  [You]
 │   ├── chart.css               ← hourly chart canvas + legend                      [Pawan]
 │   ├── alerts.css              ← alert cards + severity colours                    [Pawan]
 │   └── prefs.css               ← favourites, unit toggle, status banner            [Dighal]
@@ -103,6 +104,7 @@ Team-Rocket-Zero-Gravity/
     ├── storage.js              ← WX.storage.* facade over localStorage             [Dighal]
     ├── api.js                  ← WX.api.searchCities() / fetchForecast()           [You]
     ├── current.js              ← search UI, current card, 7-day forecast           [You]
+    ├── scene.js                ← WX.scene.map()/init() + WX.theme.apply()          [You]
     ├── chart.js                ← WX.hourly.render()                                [Pawan]
     ├── alerts.js               ← WX.alerts.compute() / render()                    [Pawan]
     ├── prefs.js                ← favourites + unit toggle UI                       [Dighal]
@@ -131,6 +133,7 @@ Team-Rocket-Zero-Gravity/
 <script src="js/units.js"    defer></script>
 <script src="js/api.js"      defer></script>
 <script src="js/current.js"  defer></script>
+<script src="js/scene.js"    defer></script>   <!-- after current.js: owns WX.theme -->
 <script src="js/chart.js"    defer></script>   <!-- Pawan -->
 <script src="js/alerts.js"   defer></script>   <!-- Pawan -->
 <script src="js/prefs.js"    defer></script>   <!-- Dighal -->
@@ -371,7 +374,9 @@ WX.events.emit(name, payload)
 | `WX.loadWeather()` (was `fetchWeather`) | `js/current.js` | **You** |
 | `WX.current.render()` | `js/current.js` | **You** |
 | `WX.forecast.render()` | `js/current.js` | **You** |
-| `WX.theme.apply(weather)` | `js/current.js` | **You** |
+| `WX.scene.map(code, isDay)` | `js/scene.js` | **You** |
+| `WX.scene.init()` | `js/scene.js` | **You** |
+| `WX.theme.apply(weather)` | `js/scene.js` | **You** |
 | `WX.hourly.render(mount, weather, units)` (was `renderChart`) | `js/chart.js` | **Pawan** |
 | `WX.alerts.compute(weather)` (was `computeAlerts`) | `js/alerts.js` | **Pawan** |
 | `WX.alerts.render(mount, alerts)` (was `renderAlerts`) | `js/alerts.js` | **Pawan** |
@@ -397,6 +402,7 @@ WX.boot = function () {
   WX.current.init();      // You: search form wiring
   WX.hourly.init();       // Pawan
   WX.alerts.init();       // Pawan
+  WX.scene.init();        // You: builds the shared atmosphere once
 
   WX.status.restore();    // Dighal: paint from cache if present, then refresh
   WX.renderAll();
@@ -426,12 +432,13 @@ Every module exposes `init()` that only wires its own listeners, and `render(...
 
 | Region | Owner | IDs that owner may create inside |
 |---|---|---|
+| `.wx-bg` (outside `#app`) | You | `.wx-scene` and `.wx-scene__*` only — built once by `WX.scene.init()` |
 | `#status-banner` | Dighal | `#status-banner`, `.wx-status--loading/error/offline`, `#retry-btn` |
-| `#city-search` | You | `#search-form`, `#search-input`, `#search-btn`, `#search-results`, `#search-error` |
-| `#current-weather` | You | `#current-city`, `#current-region`, `#current-icon`, `#current-temp`, `#current-desc`, `#current-feels`, `#current-humidity`, `#current-wind`, `#current-precip`, `#current-updated` |
+| `#city-search` | You | `#search-form`, `#search-input`, `#search-clear`, `#search-spinner`, `#search-results`, `#search-error`, `#search-hint`, `.wx-search__*` |
+| `#current-weather` | You | `#current-city`, `#current-flag`, `#current-region`, `#current-icon`, `#current-temp`, `#current-desc`, `#current-range`, `#current-feels`, `#current-humidity`, `#current-wind`, `#current-winddir`, `#current-precip`, `#current-uv`, `#current-sun`, `#current-localtime`, `#current-updated`, `#current-message`, `.wx-current__*` |
 | `#hourly-chart` | Pawan | `#hourly-chart`, `#chart-canvas`, `#chart-legend`, `#chart-empty` |
 | `#alerts` | Pawan | `#alerts-list`, `#alerts-empty`, `.wx-alert` |
-| `#forecast-7day` | You | `#forecast-list`, `.wx-forecast-card`, `#forecast-empty` |
+| `#forecast-7day` | You | `#forecast-list`, `#forecast-summary`, `.wx-forecast-row`, `.wx-forecast-row__*`, `#forecast-empty` |
 | `#favourites` | Dighal | `#favourites-list`, `#fav-add`, `#fav-empty`, `.wx-fav` |
 | `#units-toggle` | Dighal | `#units-toggle`, `#units-label` |
 
@@ -441,22 +448,37 @@ IDs above are **reserved**. To add a new ID, add it to this table first — that
 
 - Prefix everything with `wx-`. BLOCK__ELEMENT--MODIFIER.
   `.wx-card`, `.wx-card__title`, `.wx-card--alert`, `.wx-alert--severe`
-- **Owner prefixes inside each file:** `wx-search-*`, `wx-current-*`, `wx-forecast-*` (you) · `wx-chart-*`, `wx-alert-*` (Pawan) · `wx-fav-*`, `wx-units-*`, `wx-status-*` (Dighal).
+- **Owner prefixes inside each file:** `wx-search-*`, `wx-current-*`, `wx-forecast-*`, `wx-scene*` (you) · `wx-chart-*`, `wx-alert-*` (Pawan) · `wx-fav-*`, `wx-units-*`, `wx-status-*` (Dighal).
 - State classes (global, shared vocabulary): `is-loading`, `is-hidden`, `is-empty`, `is-active`, `is-dimmed`.
-- Tokens live only in `styles/base.css` `:root`: `--wx-space-*`, `--wx-radius`, `--wx-bg`, `--wx-surface`, `--wx-text`, `--wx-muted`, `--wx-accent`, `--wx-severity-low/moderate/high/severe`.
+- Tokens live only in `styles/base.css` `:root` and are the shared design system. Groups: spacing `--wx-space-1..6`; radii `--wx-radius-sm`, `--wx-radius`, `--wx-radius-lg`, `--wx-radius-pill`; typography `--wx-font`; backgrounds `--wx-bg-base`, `--wx-grad-1..3`, `--wx-blob-1/2`; surfaces/borders `--wx-surface`, `--wx-surface-solid`, `--wx-hover`, `--wx-border`, `--wx-border-strong`; accents `--wx-accent`, `--wx-accent-strong`, `--wx-accent-soft`, `--wx-focus-ring`, `--wx-icon-color`; severity `--wx-sev-low|moderate|high|severe` plus matching `-soft` variants; elevation `--wx-shadow-sm`, `--wx-shadow`, `--wx-shadow-lift`; motion `--wx-anim-fast`, `--wx-anim-base`, `--wx-anim-slow`, `--wx-ease`; icons `--wx-icon-sm|md|lg`; layout `--wx-shell`, `--wx-tap`.
+- Consume tokens instead of hard-coding a colour, radius, duration or shadow. Add a new token in `base.css` rather than inventing a local value.
+- Focus is global: `:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible` paints a 2px `--wx-accent` outline at zero specificity, so a feature file may still override it.
 - **Never** use a bare element selector (`div`, `p`) inside a feature file. Scope to your prefix. This is what keeps five stylesheets from fighting.
-- Mobile-first, single breakpoint `@media (min-width: 720px)` for the two-column layout.
+- Mobile-first, three tiers in `base.css`: single column below 640px; two equal columns `@media (min-width: 640px)` (tablet); asymmetric `1.15fr / 0.85fr` `@media (min-width: 880px)` (desktop). Every tier uses the same named `grid-template-areas` (`status`, `search`, `current`, `forecast`, `chart`, `alerts`, `favourites`, `units`) and `align-items: start`, so a region's placement never depends on another owner's CSS. `.wx-region` sets `min-width: 0` and empty regions collapse (`:empty { display: none }`) so no tier can overflow horizontally.
 
 ### 6.3 Theming via data attributes (you own; others only read)
 
 ```html
 <body data-weather="clear|clouds|rain|thunder|snow|fog"
+      data-scene="clear|partly|clouds|rain|thunder|snow|fog"
+      data-intensity="low|med|high|max"
+      data-quality="full|reduced"
       data-time="day|night"
       data-units="c|f">
 ```
 
-- `WX.theme.apply(weather)` sets these from `current.theme` + `current.isDay`.
-- Others may **read** them for consistency (Pawan can theme the chart line to match) but must **not** write them.
+| Attribute | Meaning |
+|---|---|
+| `data-weather` | Palette key. Always the WMO theme from `WX.wmo.describe()`. |
+| `data-scene` | Animation key. Same code, but keeps the partly-cloudy/overcast and drizzle/rain distinctions the palette collapses. |
+| `data-intensity` | Derived from the code's `level` in `WX.scene.map()`; drives particle density and speed so drizzle never looks like a downpour. |
+| `data-quality` | `reduced` on small screens, ≤4 cores, ≤4 GB memory or save-data connections. Thins the particle layers and drops blurs. |
+| `data-time` | Local day/night from `current.isDay`. |
+| `data-units` | Dighal's C/F preference (display only; state stays metric). |
+
+- `WX.theme.apply(weather)` (in `js/scene.js`) is the **only** writer of `data-weather`, `data-scene`, `data-intensity` and `data-time`. It is called from `WX.renderAll()`, so the atmosphere follows every repaint automatically — nobody needs to wire an extra event.
+- `data-quality` is written once by `WX.scene.init()` and re-evaluated on media-query changes.
+- Others may **read** these for consistency (Pawan can theme the chart line to match) but must **not** write them.
 - `data-units` is written by Dighal's toggle, read by everyone.
 
 ### 6.4 Accessibility contract
@@ -603,5 +625,5 @@ Complexity budget: **~1 shared namespace, ~13 script files, ~5 stylesheets, 10 e
 1. **ES modules vs classic scripts + `WX` namespace?** Plan assumes namespace (keeps `file://` working). Switch to modules only if you accept `http://`-only.
 2. **Alert thresholds** (metric defaults to start from): heat `tempMax ≥ 35 / 40 / 45 °C`, rain `precipitationSum ≥ 20 / 50 / 100 mm`, wind `windSpeedMax ≥ 40 / 60 / 90 km/h` → low / high / severe. Pawan owns the final numbers.
 3. **Default city** on first load (suggest geolocation-free fallback: Kolkata, else last favourite from cache).
-4. **Region order in the layout** — proposed: status → search → current → alerts → hourly → 7-day → favourites.
-5. **Layout at ≥720 px:** two columns (current+7-day left, alerts+chart right) or single column? Affects `base.css` grid only.
+4. **Region order in the layout** — settled: status → search → current → forecast → alerts → chart → favourites → units (the mobile tier's DOM order; the desktop tiers re-flow the last four into `chart | alerts` and `favourites | units`).
+5. **Layout breakpoints** — settled: single column below 640px, two equal columns at ≥640px, asymmetric `1.15fr / 0.85fr` at ≥880px. All three tiers share one `grid-template-areas` map in `styles/base.css` (see 6.2).

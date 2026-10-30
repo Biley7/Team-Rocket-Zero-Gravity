@@ -3,12 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Weather and alerts dashboard — forecast data turned into clear warnings.">
-  <title>Weather and Alerts Dashboard</title>
+  <meta name="description" content="WeatherHACK — a weather and alerts dashboard that turns forecast data into clear, actionable warnings.">
+  <title>WeatherHACK — Weather &amp; Alerts Dashboard</title>
 
   <!-- Stylesheet zone. OWNER: Core. Each owner adds their own <link> below and
        styles only their own region — see ARCHITECTURE.md section 6.2. -->
   <link rel="stylesheet" href="styles/base.css">
+  <link rel="stylesheet" href="styles/scene.css">
   <link rel="stylesheet" href="styles/current.css">
   <!-- Pawan: add styles/chart.css and styles/alerts.css here -->
   <!-- Dighal: add styles/prefs.css here -->
@@ -16,11 +17,13 @@
 <body>
   <a class="wx-skip" href="#app">Skip to dashboard</a>
 
-  <!-- Weather-dependent backdrop; themed by WX.theme.apply() -->
-  <div class="wx-bg" aria-hidden="true"><span></span><span></span><span></span></div>
+  <!-- Weather-dependent backdrop. The gradient comes from base.css; the
+       animation layers are built once by WX.scene.init() and styled in
+       styles/scene.css. -->
+  <div class="wx-bg" aria-hidden="true"></div>
 
   <header class="wx-header">
-    <h1 class="wx-header__title">Weather &amp; Alerts</h1>
+    <h1 class="wx-header__title">Weather<span class="wx-header__mark">HACK</span></h1>
     <p class="wx-header__tag">Forecast data turned into clear warnings.</p>
   </header>
 
@@ -30,11 +33,11 @@
     <div id="status-banner" class="wx-region wx-region--status" role="status" aria-live="polite"></div>
     <section id="city-search" class="wx-region wx-region--search" aria-label="City search"></section>
     <section id="current-weather" class="wx-region wx-region--current" aria-label="Current conditions"></section>
+    <section id="forecast-7day" class="wx-region wx-region--forecast" aria-label="Seven day forecast"></section>
     <section id="alerts" class="wx-region wx-region--alerts" aria-label="Weather alerts"></section>
     <section id="hourly-chart" class="wx-region wx-region--chart" aria-label="Hourly temperature and rain chart"></section>
-    <section id="forecast-7day" class="wx-region wx-region--forecast" aria-label="Seven day forecast"></section>
     <section id="favourites" class="wx-region wx-region--favourites" aria-label="Favourite cities"></section>
-    <div id="units-toggle" class="wx-region wx-region--units" aria-label="Temperature units"></div>
+    <section id="units-toggle" class="wx-region wx-region--units" aria-label="Temperature units"></section>
   </main>
 
   <footer class="wx-footer">
@@ -53,6 +56,8 @@
   <script src="js/units.js" defer></script>
   <script src="js/api.js" defer></script>
   <script src="js/current.js" defer></script>
+  <!-- scene.js must load after current.js: it takes ownership of WX.theme. -->
+  <script src="js/scene.js" defer></script>
   <script src="js/chart.js" defer></script>
   <script src="js/alerts.js" defer></script>
   <script src="js/prefs.js" defer></script>

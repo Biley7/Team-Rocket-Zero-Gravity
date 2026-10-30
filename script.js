@@ -53,6 +53,9 @@
     call("current.init");
     call("hourly.init");
     call("alerts.init");
+    // Builds the shared atmosphere once. apply() is wired into renderAll below
+    // through the "theme.apply" call, so it follows every repaint.
+    call("scene.init");
 
     WX.events.on("units:changed", WX.renderAll);
     WX.events.on("weather:loaded", WX.renderAll);

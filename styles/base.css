@@ -3,6 +3,7 @@
    do not restyle another owner's region from here. */
 
 :root {
+  /* --- spacing ------------------------------------------------------- */
   --wx-space-1: .25rem;
   --wx-space-2: .5rem;
   --wx-space-3: .75rem;
@@ -10,36 +11,73 @@
   --wx-space-5: 1.5rem;
   --wx-space-6: 2.25rem;
 
+  /* --- radii --------------------------------------------------------- */
   --wx-radius-sm: 8px;
   --wx-radius: 14px;
   --wx-radius-lg: 22px;
+  --wx-radius-pill: 999px;
 
+  /* --- typography ---------------------------------------------------- */
   --wx-font: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 
+  /* --- text colours -------------------------------------------------- */
   --wx-text: #0d1b2a;
   --wx-muted: #5a6b80;
+
+  /* --- backgrounds --------------------------------------------------- */
+  --wx-bg-base: #eef2f7;
+  --wx-grad-1: #cfe0f7;
+  --wx-grad-2: #e8eff9;
+  --wx-grad-3: #f7fafc;
+  --wx-blob-1: #a9c9ff;
+  --wx-blob-2: #ffd9b0;
+
+  /* --- card surfaces and borders ------------------------------------ */
   --wx-surface: rgba(255, 255, 255, .78);
   --wx-surface-solid: #ffffff;
+  --wx-hover: rgba(13, 27, 42, .045);
   --wx-border: rgba(13, 27, 42, .10);
-  --wx-accent: #2f6fed;
-  --wx-accent-soft: rgba(47, 111, 237, .12);
+  --wx-border-strong: rgba(13, 27, 42, .20);
 
+  /* --- accents ------------------------------------------------------- */
+  --wx-accent: #2f6fed;
+  --wx-accent-strong: #1f57c9;
+  --wx-accent-soft: rgba(47, 111, 237, .12);
+  --wx-focus-ring: 0 0 0 3px var(--wx-accent-soft);
+  --wx-icon-color: #7b8ba3;
+
+  /* --- severity (used by alerts and status) ------------------------- */
   --wx-sev-low: #1f9d6b;
   --wx-sev-moderate: #d9930b;
   --wx-sev-high: #e0642e;
   --wx-sev-severe: #c0392b;
+  --wx-sev-low-soft: rgba(31, 157, 107, .14);
+  --wx-sev-moderate-soft: rgba(217, 147, 11, .16);
+  --wx-sev-high-soft: rgba(224, 100, 46, .14);
+  --wx-sev-severe-soft: rgba(192, 57, 43, .13);
 
+  /* --- elevation ----------------------------------------------------- */
+  --wx-shadow-sm: 0 1px 2px rgba(13, 27, 42, .05);
   --wx-shadow: 0 1px 2px rgba(13, 27, 42, .05), 0 10px 30px rgba(13, 27, 42, .08);
+  --wx-shadow-lift: 0 2px 6px rgba(13, 27, 42, .07), 0 18px 42px rgba(13, 27, 42, .13);
 
-  --wx-grad-1: #cfe0f7;
-  --wx-grad-2: #e8eff9;
-  --wx-grad-3: #f7fafc;
-  --wx-icon-color: #7b8ba3;
-  --wx-blob-1: #a9c9ff;
-  --wx-blob-2: #ffd9b0;
+  /* --- motion -------------------------------------------------------- */
+  --wx-anim-fast: 120ms;
+  --wx-anim-base: 200ms;
+  --wx-anim-slow: 420ms;
+  --wx-ease: cubic-bezier(.4, 0, .2, 1);
+
+  /* --- icon sizing --------------------------------------------------- */
+  --wx-icon-sm: 16px;
+  --wx-icon-md: 20px;
+  --wx-icon-lg: 30px;
+
+  /* --- shell --------------------------------------------------------- */
+  --wx-shell: 1240px;
+  --wx-tap: 44px;
 }
 
-/* Weather-dependent palette (owned by current.js via WX.theme.apply) */
+/* Weather-dependent palette (owned by scene.js via WX.theme.apply) */
 body[data-weather="clear"][data-time="day"]   { --wx-grad-1: #9ccbff; --wx-grad-2: #d7ecff; --wx-grad-3: #fdf6e4; --wx-blob-1: #ffcf6b; --wx-blob-2: #8fc4ff; }
 body[data-weather="clear"][data-time="night"] { --wx-grad-1: #101c3d; --wx-grad-2: #1d2c56; --wx-grad-3: #33406b; --wx-blob-1: #3f5bab; --wx-blob-2: #8ea9ff; }
 body[data-weather="clouds"][data-time="day"]  { --wx-grad-1: #b9c6d6; --wx-grad-2: #dde5ee; --wx-grad-3: #f5f8fb; --wx-blob-1: #9fb2c7; --wx-blob-2: #d7e1ec; }
@@ -62,18 +100,36 @@ body[data-weather="fog"]    { --wx-icon-color: #8b96a3; }
 
 /* Night mode lifts the text palette so contrast survives the dark gradients */
 body[data-time="night"] {
+  color-scheme: dark;
   --wx-text: #eef3fb;
   --wx-muted: #a7b6cc;
   --wx-surface: rgba(18, 26, 44, .68);
   --wx-surface-solid: #141d33;
+  --wx-hover: rgba(255, 255, 255, .07);
   --wx-border: rgba(255, 255, 255, .14);
+  --wx-border-strong: rgba(255, 255, 255, .26);
+  --wx-accent: #78a5ff;
+  --wx-accent-strong: #9dbcff;
   --wx-accent-soft: rgba(120, 165, 255, .18);
+  --wx-shadow-sm: 0 1px 2px rgba(0, 0, 0, .3);
   --wx-shadow: 0 1px 2px rgba(0, 0, 0, .35), 0 12px 34px rgba(0, 0, 0, .38);
+  --wx-shadow-lift: 0 2px 8px rgba(0, 0, 0, .4), 0 20px 46px rgba(0, 0, 0, .46);
+
+  /* Severity is lifted too: the day values are tuned for light card surfaces
+     and would drop under 4.5:1 against the night surfaces. */
+  --wx-sev-low: #3ecf95;
+  --wx-sev-moderate: #f2b73d;
+  --wx-sev-high: #ff8f5e;
+  --wx-sev-severe: #ff7b6b;
+  --wx-sev-low-soft: rgba(62, 207, 149, .18);
+  --wx-sev-moderate-soft: rgba(242, 183, 61, .18);
+  --wx-sev-high-soft: rgba(255, 143, 94, .18);
+  --wx-sev-severe-soft: rgba(255, 123, 107, .18);
 }
 
 * { box-sizing: border-box; }
 
-html { -webkit-text-size-adjust: 100%; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
 
 body {
   margin: 0;
@@ -81,11 +137,20 @@ body {
   font-family: var(--wx-font);
   line-height: 1.5;
   color: var(--wx-text);
-  background: #eef2f7;
+  background: var(--wx-bg-base);
   transition: color .5s ease;
+  overflow-x: hidden;
 }
 
-/* Animated weather backdrop */
+/* One visible focus style for every interactive element. `:where()` keeps it at
+   zero specificity so a feature stylesheet can still override it if it must. */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--wx-accent);
+  outline-offset: 2px;
+}
+
+/* Weather backdrop. The palette gradient lives here; the animated layers are
+   built by js/scene.js and styled in styles/scene.css. */
 .wx-bg {
   position: fixed;
   inset: 0;
@@ -93,22 +158,6 @@ body {
   overflow: hidden;
   background: linear-gradient(165deg, var(--wx-grad-1), var(--wx-grad-2) 55%, var(--wx-grad-3));
   transition: background .8s ease;
-}
-
-.wx-bg span {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(60px);
-  opacity: .55;
-  animation: wx-drift 26s ease-in-out infinite;
-}
-.wx-bg span:nth-child(1) { width: 46vmax; height: 46vmax; top: -14vmax; left: -10vmax; background: var(--wx-blob-1); }
-.wx-bg span:nth-child(2) { width: 38vmax; height: 38vmax; top: 32vmax; right: -12vmax; background: var(--wx-blob-2); animation-delay: -9s; }
-.wx-bg span:nth-child(3) { width: 30vmax; height: 30vmax; bottom: -12vmax; left: 22vmax; background: var(--wx-blob-1); animation-delay: -17s; opacity: .35; }
-
-@keyframes wx-drift {
-  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
-  50%      { transform: translate3d(3vmax, -2vmax, 0) scale(1.08); }
 }
 
 /* Shell */
@@ -123,30 +172,55 @@ body {
 .wx-skip:focus { left: var(--wx-space-4); top: var(--wx-space-4); }
 
 .wx-header {
-  max-width: 1100px;
+  max-width: var(--wx-shell);
   margin: 0 auto;
-  padding: var(--wx-space-6) var(--wx-space-4) 0;
+  padding: clamp(2rem, 5vw, 3rem) clamp(1rem, 3vw, 2rem) 0;
 }
-.wx-header__title { margin: 0; font-size: 1.6rem; letter-spacing: -.02em; }
-.wx-header__tag { margin: var(--wx-space-1) 0 0; color: var(--wx-muted); font-size: .95rem; }
+.wx-header__title {
+  margin: 0;
+  font-size: clamp(1.5rem, 3.4vw, 2rem);
+  font-weight: 700;
+  letter-spacing: -.03em;
+  line-height: 1.1;
+}
+.wx-header__mark { color: var(--wx-accent); }
+.wx-header__tag { margin: var(--wx-space-2) 0 0; color: var(--wx-muted); font-size: .95rem; }
 
 .wx-app {
-  max-width: 1100px;
+  max-width: var(--wx-shell);
+  min-width: 0;
   margin: 0 auto;
-  padding: var(--wx-space-4) var(--wx-space-4) var(--wx-space-6);
+  padding: var(--wx-space-4) clamp(1rem, 3vw, 2rem) var(--wx-space-6);
   display: grid;
   gap: var(--wx-space-4);
+  /* Mobile base: one column, hero first (see the tiered blocks below). */
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas:
+    "status"
+    "search"
+    "current"
+    "forecast"
+    "alerts"
+    "chart"
+    "favourites"
+    "units";
 }
 
 .wx-footer {
-  max-width: 1100px;
+  max-width: var(--wx-shell);
   margin: 0 auto;
-  padding: 0 var(--wx-space-4) var(--wx-space-6);
+  padding: 0 clamp(1rem, 3vw, 2rem) var(--wx-space-6);
   color: var(--wx-muted);
   font-size: .8rem;
 }
+.wx-footer a { color: var(--wx-accent); }
 
-/* Regions — each owner fills only their own container */
+/* Regions — each owner fills only their own container. `min-width: 0` stops a
+   long city name or an unbreakable label from forcing the grid wider than the
+   viewport, and an empty region collapses instead of leaving a dead row. */
+.wx-region { min-width: 0; }
+.wx-region:empty { display: none; }
+
 .wx-region--status { grid-area: status; }
 .wx-region--search { grid-area: search; position: relative; z-index: 5; }
 .wx-region--current { grid-area: current; }
@@ -165,6 +239,15 @@ body {
   border-radius: var(--wx-radius-lg);
   box-shadow: var(--wx-shadow);
   padding: var(--wx-space-5);
+  transition: box-shadow var(--wx-anim-base) var(--wx-ease),
+              border-color var(--wx-anim-base) var(--wx-ease);
+}
+.wx-card:hover {
+  box-shadow: var(--wx-shadow-lift);
+  border-color: var(--wx-border-strong);
+}
+@media (max-width: 480px) {
+  .wx-card { padding: var(--wx-space-4); }
 }
 
 .wx-empty {
@@ -182,21 +265,37 @@ body {
 /* Utilities */
 .is-hidden { display: none !important; }
 
-@media (min-width: 880px) {
+/* ------------------------------------------------------------ responsive */
+
+/* Tablet: the dashboard becomes a real two-column grid and every card keeps a
+   usable width because both tracks are equal instead of a narrow side rail. */
+@media (min-width: 640px) {
   .wx-app {
-    grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr);
+    gap: var(--wx-space-5);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    /* Visual hierarchy (ARCHITECTURE.md 5.2): hero -> 7-day -> chart/alerts ->
+       favourites/units. Each area belongs to one owner, so placements can move
+       without touching anyone else's CSS. */
     grid-template-areas:
-      "status    status"
-      "search    search"
-      "current   alerts"
-      "chart     chart"
-      "forecast  favourites"
-      "units     units";
+      "status     status"
+      "search     search"
+      "current    current"
+      "forecast   forecast"
+      "chart      alerts"
+      "favourites units";
     align-items: start;
   }
 }
 
+/* Desktop: the data-heavy panels get more room than the side cards, and the
+   hero plus the 7-day forecast stay full-bleed so they read as one narrative. */
+@media (min-width: 880px) {
+  .wx-app {
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, .85fr);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .wx-bg span { animation: none; }
+  html { scroll-behavior: auto; }
   * { transition-duration: .01ms !important; animation-duration: .01ms !important; }
 }
