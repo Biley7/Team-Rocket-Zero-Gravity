@@ -22,6 +22,9 @@
       var stored = WX.storage.get(WX.storage.KEYS.UNITS, "C");
       units.current = stored === "F" ? "F" : "C";
       units.applyAttribute();
+      // CHANGED: keep WX.state.units in step with the saved choice on page load
+      // (previously it stayed "C" until the first toggle).
+      if (WX.set) WX.set({ units: units.current });
       return units.current;
     },
 
